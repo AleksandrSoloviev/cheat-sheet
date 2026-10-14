@@ -1,0 +1,21 @@
+---
+import Base from '../../layouts/Base.astro';
+import TechList from '../../components/TechList.astro';
+import { isLocale, locales, t, type Locale } from '../../i18n/ui';
+
+export function getStaticPaths() {
+  return locales.map((locale) => ({ params: { locale } }));
+}
+
+const localeParam = Astro.params.locale;
+if (!isLocale(localeParam)) {
+  throw new Error('Unsupported locale');
+}
+const locale: Locale = localeParam;
+---
+
+<Base title={t(locale, 'site.title')} locale={locale}>
+  <h1>{t(locale, 'site.title')}</h1>
+  <p class="lead">{t(locale, 'home.lead')}</p>
+  <TechList locale={locale} />
+</Base>

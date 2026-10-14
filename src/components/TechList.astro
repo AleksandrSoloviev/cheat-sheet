@@ -1,0 +1,21 @@
+---
+import { technologies } from '../data/technologies';
+import { technologyLabel, type Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const items = [...technologies].sort((a, b) => a.order - b.order);
+---
+
+<ul class="tech-list">
+  {
+    items.map((item) => (
+      <li>
+        <a href={`/${locale}/${item.slug}/`}>{technologyLabel(locale, item.slug)}</a>
+      </li>
+    ))
+  }
+</ul>

@@ -1,0 +1,48 @@
+---
+import Base from '../../../layouts/Base.astro';
+import { getTechnology, technologyHasKind, technologies } from '../../../data/technologies';
+import { entrySlug, localizedList } from '../../../lib/entries';
+import { isLocale, locales, t, technologyLabel, type Locale } from '../../../i18n/ui';
+
+export async function getStaticPaths() {
+  return locales.flatMap((locale) => technologies.map((technology) => ({ params: { locale, tech: technology.slug } })));
+}
+
+const localeParam = Astro.params.locale;
+const tech = Astro.params.tech;
+if (!isLocale(localeParam) || !tech || !getTechnology(tech)) {
+  throw new Error('Unknown technology');
+}
+const locale: Locale = localeParam;
+const technology = getTechnology(tech)!;
+
+const cards = technologyHasKind(tech, 'cards') ? await localizedList('cards', locale, tech) : [];
+const conspect = technologyHasKind(tech, 'conspect') ? await localizedList('conspect', locale, tech) : [];
+const kinds = technology.kinds;
+const label = technologyLabel(locale, tech);
+---
+
+<Base title={label} locale={locale}>
+  <h1>{label}</h1>
+  {
+    kinds.map((kind) => (
+      <section class="kind-block">
+        <h2>{t(locale, `kind.${kind}` as 'kind.cards')}</h2>
+        {kind === 'roadmap' ? (
+          <p>
+            <a href={`/${locale}/${tech}/roadmap`}>{t(locale, 'kind.roadmap')}</a>
+          </p>
+        ) : (
+          <ul class="card-list">
+            {(kind === 'cards' ? cards : conspect).map((item) => (
+              <li>
+                <a href={`/${locale}/${tech}/${kind}/${entrySlug(item.entry.id)}`}>{item.entry.data.title}</a>
+                {item.usedFallback && <p class="fallback">{t(locale, 'fallback.note')}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    ))
+  }
+</Base>

@@ -1,0 +1,56 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../../layouts/Base.astro';
+import RoadmapApp from '../../../components/RoadmapApp.astro';
+import { technologyHasKind } from '../../../data/technologies';
+import { isLocale, t, type Locale } from '../../../i18n/ui';
+
+export async function getStaticPaths() {
+  const items = await getCollection('roadmap');
+  const techs = new Set<string>();
+  for (const item of items) {
+    const technology = item.id.split('/')[1];
+    if (technology && technologyHasKind(technology, 'roadmap')) techs.add(technology);
+  }
+  return [...techs].flatMap((tech) => [
+    { params: { locale: 'ru', tech } },
+    { params: { locale: 'en', tech } },
+  ]);
+}
+
+const localeParam = Astro.params.locale;
+const tech = Astro.params.tech ?? '';
+if (!isLocale(localeParam) || !technologyHasKind(tech, 'roadmap')) {
+  return Astro.redirect('/ru/');
+}
+const locale: Locale = localeParam;
+const items = await getCollection('roadmap');
+
+function pick(day: string) {
+  const own = items.find((item) => item.id === `${locale}/${tech}/${day}`);
+  if (own) return { entry: own, usedFallback: false };
+  const russian = items.find((item) => item.id === `ru/${tech}/${day}`);
+  if (!russian) return undefined;
+  return { entry: russian, usedFallback: locale !== 'ru' };
+}
+
+const dayOrder = ['day1', 'day2', 'day3', 'optional'] as const;
+const pickedDays = dayOrder.flatMap((day) => {
+  const picked = pick(day);
+  if (!picked) return [];
+  return [{ day, title: picked.entry.data.title, questions: picked.entry.data.questions, usedFallback: picked.usedFallback }];
+});
+const days = pickedDays.map(({ day, title, questions }) => ({ day, title, questions }));
+const terms = pick('glossary-terms');
+const lifecycle = pick('glossary-lifecycle');
+const termsBody = terms?.entry.body ?? '';
+const lifecycleBody = lifecycle?.entry.body ?? '';
+const usedFallback = pickedDays.some((day) => day.usedFallback) || Boolean(terms?.usedFallback) || Boolean(lifecycle?.usedFallback);
+---
+
+<Base title={t(locale, 'kind.roadmap')} locale={locale}>
+  <p><a href={`/${locale}/${tech}/`}>{t(locale, 'nav.backToTech')}</a></p>
+  {usedFallback && <p class="fallback">{t(locale, 'fallback.note')}</p>}
+  <h1>{t(locale, 'kind.roadmap')}</h1>
+  <RoadmapApp locale={locale} days={days} terms={termsBody} lifecycle={lifecycleBody} />
+</Base>

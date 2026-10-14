@@ -1,0 +1,44 @@
+---
+import { getCollection, render } from 'astro:content';
+import Base from '../../../../layouts/Base.astro';
+import { technologyHasKind } from '../../../../data/technologies';
+import { entrySlug, entryWithFallback } from '../../../../lib/entries';
+import { isLocale, t, technologyLabel, type Locale } from '../../../../i18n/ui';
+
+export async function getStaticPaths() {
+  const cards = await getCollection('cards');
+  const keys = new Set<string>();
+  for (const card of cards) {
+    const [locale, technology, ...rest] = card.id.split('/');
+    if (!technology || rest.length === 0) continue;
+    keys.add(`${locale}/${technology}/${rest.join('/')}`);
+    if (locale === 'ru') keys.add(`en/${technology}/${rest.join('/')}`);
+  }
+  return [...keys].map((key) => {
+    const [locale, tech, ...rest] = key.split('/');
+    return { params: { locale, tech, slug: rest.join('/') } };
+  });
+}
+
+const localeParam = Astro.params.locale;
+const tech = Astro.params.tech ?? '';
+const slug = Astro.params.slug ?? '';
+if (!isLocale(localeParam) || !technologyHasKind(tech, 'cards')) {
+  return Astro.redirect('/ru/');
+}
+const locale: Locale = localeParam;
+const { entry, usedFallback } = await entryWithFallback('cards', locale, tech, slug);
+if (!entry) {
+  throw new Error(`Missing card ${slug}`);
+}
+const { Content } = await render(entry);
+---
+
+<Base title={entry.data.title} locale={locale}>
+  <p><a href={`/${locale}/${tech}/`}>{t(locale, 'nav.backToTech')}</a> · {technologyLabel(locale, tech)}</p>
+  {usedFallback && <p class="fallback">{t(locale, 'fallback.note')}</p>}
+  <article class="article">
+    <h1>{entry.data.title}</h1>
+    <Content />
+  </article>
+</Base>

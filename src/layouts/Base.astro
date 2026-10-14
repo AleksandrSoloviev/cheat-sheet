@@ -1,0 +1,37 @@
+---
+import '../styles/global.css';
+import LocaleSwitch from '../components/LocaleSwitch.astro';
+import { isLocale, t, type Locale } from '../i18n/ui';
+
+interface Props {
+  title: string;
+  locale?: Locale;
+}
+
+const { title, locale: localeProp } = Astro.props;
+const fromPath = Astro.url.pathname.split('/').filter(Boolean)[0];
+const locale: Locale = localeProp ?? (isLocale(fromPath) ? fromPath : 'ru');
+---
+
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Serif:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href={`/${locale}/`}>{t(locale, 'site.title')}</a>
+      <LocaleSwitch locale={locale} pathname={Astro.url.pathname} />
+    </header>
+    <main class="wrap">
+      <slot />
+    </main>
+  </body>
+</html>

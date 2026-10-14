@@ -1,0 +1,58 @@
+---
+import { getCollection, render } from 'astro:content';
+import Base from '../../../../layouts/Base.astro';
+import { technologyHasKind } from '../../../../data/technologies';
+import { entrySlug, entryWithFallback, localizedList } from '../../../../lib/entries';
+import { isLocale, t, type Locale } from '../../../../i18n/ui';
+
+export async function getStaticPaths() {
+  const sections = await getCollection('conspect');
+  const slugs = new Set<string>();
+  for (const section of sections) {
+    const parts = section.id.split('/');
+    const technology = parts[1];
+    const slug = parts.slice(2).join('/');
+    if (technology && slug) slugs.add(`${technology}/${slug}`);
+  }
+  const paths = [];
+  for (const key of slugs) {
+    const slash = key.indexOf('/');
+    const tech = key.slice(0, slash);
+    const slug = key.slice(slash + 1);
+    if (!technologyHasKind(tech, 'conspect')) continue;
+    paths.push({ params: { locale: 'ru', tech, slug } });
+    paths.push({ params: { locale: 'en', tech, slug } });
+  }
+  return paths;
+}
+
+const localeParam = Astro.params.locale;
+const tech = Astro.params.tech ?? '';
+const slug = Astro.params.slug ?? '';
+if (!isLocale(localeParam) || !technologyHasKind(tech, 'conspect')) {
+  return Astro.redirect('/ru/');
+}
+const locale: Locale = localeParam;
+const { entry, usedFallback } = await entryWithFallback('conspect', locale, tech, slug);
+if (!entry) {
+  throw new Error(`Missing conspect ${slug}`);
+}
+const siblings = await localizedList('conspect', locale, tech);
+const index = siblings.findIndex((item) => entrySlug(item.entry.id) === slug);
+const previous = index > 0 ? siblings[index - 1] : undefined;
+const next = index >= 0 && index < siblings.length - 1 ? siblings[index + 1] : undefined;
+const { Content } = await render(entry);
+---
+
+<Base title={entry.data.title} locale={locale}>
+  <p><a href={`/${locale}/${tech}/`}>{t(locale, 'nav.backToTech')}</a></p>
+  {usedFallback && <p class="fallback">{t(locale, 'fallback.note')}</p>}
+  <article class="article">
+    <h1>{entry.data.title}</h1>
+    <Content />
+  </article>
+  <nav class="pager">
+    {previous ? <a href={`/${locale}/${tech}/conspect/${entrySlug(previous.entry.id)}`}>{t(locale, 'conspect.prev')}</a> : <span />}
+    {next ? <a href={`/${locale}/${tech}/conspect/${entrySlug(next.entry.id)}`}>{t(locale, 'conspect.next')}</a> : <span />}
+  </nav>
+</Base>

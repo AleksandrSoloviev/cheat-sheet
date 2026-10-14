@@ -1,0 +1,142 @@
+---
+import { renderMarkdown } from '../lib/markdown';
+import { t, type Locale } from '../i18n/ui';
+
+interface Question {
+  id: string;
+  title: string;
+  body: string;
+}
+
+interface DayPanel {
+  day: 'day1' | 'day2' | 'day3' | 'optional';
+  title: string;
+  questions: Question[];
+}
+
+interface Props {
+  locale: Locale;
+  days: DayPanel[];
+  terms: string;
+  lifecycle: string;
+}
+
+const { locale, days, terms, lifecycle } = Astro.props;
+const tabs = [
+  ...days.map((day) => ({ id: day.day, label: t(locale, `roadmap.${day.day}` as 'roadmap.day1') })),
+  { id: 'glossary', label: t(locale, 'roadmap.glossary') },
+];
+---
+
+<div class="roadmap-app" data-roadmap>
+<p class="progress"><span data-roadmap-count>0</span> {t(locale, 'roadmap.done')}</p>
+<div class="tabs" role="tablist">
+  {
+    tabs.map((tab) => (
+      <button type="button" class="tab" data-tab={tab.id} aria-pressed="false">
+        {tab.label}
+      </button>
+    ))
+  }
+</div>
+
+{
+  days.map((day) => (
+    <section class="day-panel" data-panel={day.day} hidden>
+      <div class="day-head">
+        <h2>{day.title}</h2>
+      </div>
+      {day.questions.map((question) => (
+        <details class="q" data-day={day.day}>
+          <summary class="q-sum">
+            <label class="check" onclick="event.stopPropagation()">
+              <input type="checkbox" data-check={question.id} />
+            </label>
+            <span class="qid">Q{question.id}</span>
+            <span class="qtitle">{question.title}</span>
+          </summary>
+          <div class="q-body" set:html={renderMarkdown(question.body)} />
+        </details>
+      ))}
+    </section>
+  ))
+}
+
+<section class="day-panel" data-panel="glossary" hidden>
+  <div class="tabs">
+    <button type="button" class="tab" data-gloss="terms" aria-pressed="true">{t(locale, 'roadmap.terms')}</button>
+    <button type="button" class="tab" data-gloss="lifecycle" aria-pressed="false">{t(locale, 'roadmap.lifecycle')}</button>
+  </div>
+  <div data-gloss-panel="terms" set:html={renderMarkdown(terms)} />
+  <div data-gloss-panel="lifecycle" hidden set:html={renderMarkdown(lifecycle)} />
+</section>
+
+</div>
+<script is:inline>
+  document.querySelectorAll('[data-roadmap]').forEach(function (root) {
+    var doneKey = 'vue-roadmap-done-v1';
+    var tabKey = 'vue-roadmap-tab-v1';
+    var storageOk = true;
+    var done = new Set();
+    try {
+      var parsed = JSON.parse(localStorage.getItem(doneKey) || '[]');
+      if (Array.isArray(parsed)) parsed.forEach(function (id) { done.add(String(id)); });
+    } catch (error) {
+      storageOk = false;
+      done = new Set();
+    }
+
+    function showTab(name) {
+      root.querySelectorAll('[data-panel]').forEach(function (panel) {
+        panel.hidden = panel.getAttribute('data-panel') !== name;
+      });
+      root.querySelectorAll('[data-tab]').forEach(function (button) {
+        button.setAttribute('aria-pressed', button.getAttribute('data-tab') === name ? 'true' : 'false');
+      });
+      if (!storageOk) return;
+      try { localStorage.setItem(tabKey, name); } catch (error) {}
+    }
+
+    function updateCount() {
+      var node = root.querySelector('[data-roadmap-count]');
+      if (node) node.textContent = String(done.size);
+    }
+
+    root.querySelectorAll('[data-check]').forEach(function (input) {
+      var id = input.getAttribute('data-check') || '';
+      input.checked = done.has(id);
+      input.addEventListener('change', function () {
+        if (input.checked) done.add(id);
+        else done.delete(id);
+        updateCount();
+        try { localStorage.setItem(doneKey, JSON.stringify(Array.from(done))); } catch (error) {}
+      });
+    });
+
+    root.querySelectorAll('[data-tab]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        showTab(button.getAttribute('data-tab') || 'day1');
+      });
+    });
+
+    root.querySelectorAll('[data-gloss]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var name = button.getAttribute('data-gloss');
+        root.querySelectorAll('[data-gloss-panel]').forEach(function (panel) {
+          panel.hidden = panel.getAttribute('data-gloss-panel') !== name;
+        });
+        root.querySelectorAll('[data-gloss]').forEach(function (item) {
+          item.setAttribute('aria-pressed', item === button ? 'true' : 'false');
+        });
+      });
+    });
+
+    var initial = 'day1';
+    if (storageOk) {
+      try { initial = localStorage.getItem(tabKey) || 'day1'; } catch (error) { initial = 'day1'; }
+    }
+    if (!root.querySelector('[data-panel="' + initial + '"]')) initial = 'day1';
+    showTab(initial);
+    updateCount();
+  });
+</script>

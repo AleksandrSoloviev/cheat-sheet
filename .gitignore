@@ -1,0 +1,11 @@
+# Spec Kit work items
+specs/
+
+# Node / Astro
+node_modules/
+dist/
+.astro/
+*.log
+.env
+.env.*
+.DS_Store

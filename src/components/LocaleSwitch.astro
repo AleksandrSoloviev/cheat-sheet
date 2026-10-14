@@ -1,0 +1,20 @@
+---
+import { locales, swapLocalePath, t, type Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+  pathname: string;
+}
+
+const { locale, pathname } = Astro.props;
+---
+
+<nav class="locale-switch" aria-label={locale === 'ru' ? 'Язык' : 'Language'}>
+  {
+    locales.map((item) => (
+      <a href={swapLocalePath(pathname, item)} aria-current={item === locale ? 'page' : undefined} hrefLang={item}>
+        {t(locale, item === 'ru' ? 'locale.ru' : 'locale.en')}
+      </a>
+    ))
+  }
+</nav>
