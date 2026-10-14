@@ -8,14 +8,15 @@
 ## Naming and Structure
 
 - Study prose exists in `ru` and `en`. Russian is the fallback.
-- Technology slugs: `vue`, `javascript`. Labels are `tech.{slug}` in `src/i18n/ui.ts`.
-- Roadmap tabs use `data-tab` / `data-panel` values `day1`, `day2`, `day3`, `optional`, `glossary`.
+- Technology slugs: `vue`, `javascript`, `next`. Labels are `tech.{slug}` in `src/i18n/ui.ts`.
+- Vue roadmap tabs use `data-tab` / `data-panel` values `day1`, `day2`, `day3`, `optional`, `glossary`.
+- A single-list roadmap uses `day: catalog` and `data-panel="catalog"`.
 - Glossary subtabs use `data-gloss` / `data-gloss-panel` values `terms` and `lifecycle`.
-- Question completion is stored under `localStorage` key `vue-roadmap-done-v1`. The active tab is `vue-roadmap-tab-v1`. Question ids do not include the locale.
+- Vue question completion is `localStorage` key `vue-roadmap-done-v1`. The active Vue tab is `vue-roadmap-tab-v1`. Next completion is `next-roadmap-done-v1`. Question ids do not include the locale.
 
 ## Testing Expectations
 
-- TODO: No test runner is configured. Check changes with `npm run build` and the routes in `specs/001-cheat-sheet-app/quickstart.md`.
+- TODO: No test runner is configured. Check changes with `npm run build` and the quickstart for the active work item.
 
 ## Review Checklist
 

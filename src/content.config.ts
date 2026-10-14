@@ -22,7 +22,7 @@ const conspect = defineCollection({
 const roadmap = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/roadmap' }),
   schema: z.object({
-    day: z.enum(['day1', 'day2', 'day3', 'optional', 'glossary-terms', 'glossary-lifecycle']),
+    day: z.enum(['day1', 'day2', 'day3', 'optional', 'glossary-terms', 'glossary-lifecycle', 'catalog']),
     title: z.string(),
     questions: z.array(
       z.object({

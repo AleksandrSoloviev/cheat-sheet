@@ -10,12 +10,12 @@
 1. Astro reads the content collections and emits HTML for `ru` and `en`.
 2. `/` redirects to `/ru/`. An unknown locale prefix redirects to the same path under `/ru`.
 3. A page prefers the file for the URL locale. If that file is missing, it renders the Russian file and marks that item.
-4. The roadmap script reads `localStorage` keys `vue-roadmap-done-v1` and `vue-roadmap-tab-v1`, then shows one day panel.
+4. The Vue roadmap script reads `localStorage` keys `vue-roadmap-done-v1` and `vue-roadmap-tab-v1`, then shows one day panel. The Next roadmap reads and writes only `next-roadmap-done-v1` and does not use a tab key.
 
 ## Outputs
 
 - Static HTML.
-- Updated `localStorage` for roadmap progress and the selected day tab.
+- Updated `localStorage` for Vue roadmap progress and the selected day tab, and for Next question checks.
 
 ## Persistence
 

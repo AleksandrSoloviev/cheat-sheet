@@ -10,6 +10,7 @@ No authentication. Locales are `ru` and `en`.
 | `/{unknown}/...` | prefix is not `ru` or `en` | same path under `/ru` |
 | `/{locale}/{tech}` | `tech` must be in `src/data/technologies.ts` | 404 |
 | `/{locale}/javascript/conspect` and `.../roadmap` | javascript has only `cards` | 404 |
+| `/{locale}/next/cards` and `.../conspect` | next has only `roadmap` | 404 |
 
 ## Transition edges
 
@@ -17,10 +18,12 @@ No authentication. Locales are `ru` and `en`.
 - `SCREEN-technology-list` → `SCREEN-technology-home` : technology link.
 - `SCREEN-technology-home` → `SCREEN-card` : card link, when `cards` is a kind.
 - `SCREEN-technology-home` → `SCREEN-conspect` : section link, Vue only.
-- `SCREEN-technology-home` → `SCREEN-roadmap` : study-plan link, Vue only.
+- `SCREEN-technology-home` → `SCREEN-roadmap` : study-plan link when the technology is `vue`.
+- `SCREEN-technology-home` → `SCREEN-next-roadmap` : study-plan link when the technology is `next`.
 - `SCREEN-app-frame` locale switch : same path with `/ru` or `/en`.
 - `SCREEN-roadmap` tab `day1` → panels `day2`, `day3`, `optional`, `glossary` : `data-tab`. Default `day1` unless `localStorage` `vue-roadmap-tab-v1` says otherwise.
 - Glossary panel → `terms` or `lifecycle` : `data-gloss`. `terms` is shown first. The subtab is not stored.
+- `SCREEN-next-roadmap` has no day tabs and no glossary. Checked ids are `localStorage` key `next-roadmap-done-v1`, shared by `ru` and `en`. There is no tab key.
 - `SCREEN-not-found` → `SCREEN-technology-list` : home link.
 
 ## Graph
@@ -32,12 +35,14 @@ flowchart LR
   home[technology home]
   card[card]
   conspect[conspect]
-  roadmap[roadmap]
+  roadmap[vue roadmap]
+  nextRoadmap[next roadmap]
   missing[not found]
   redirect --> list
   list --> home
   home --> card
   home --> conspect
   home --> roadmap
+  home --> nextRoadmap
   missing --> list
 ```

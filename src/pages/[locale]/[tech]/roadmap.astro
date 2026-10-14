@@ -40,17 +40,28 @@ const pickedDays = dayOrder.flatMap((day) => {
   if (!picked) return [];
   return [{ day, title: picked.entry.data.title, questions: picked.entry.data.questions, usedFallback: picked.usedFallback }];
 });
-const days = pickedDays.map(({ day, title, questions }) => ({ day, title, questions }));
-const terms = pick('glossary-terms');
-const lifecycle = pick('glossary-lifecycle');
+const catalog = pick('catalog');
+const useCatalog = pickedDays.length === 0 && Boolean(catalog);
+function byNumber(questions: { id: string; title: string; body: string }[]) {
+  return [...questions].sort((left, right) => Number(left.id) - Number(right.id));
+}
+const days = useCatalog && catalog
+  ? [{ day: 'catalog' as const, title: catalog.entry.data.title, questions: byNumber(catalog.entry.data.questions) }]
+  : pickedDays.map(({ day, title, questions }) => ({ day, title, questions }));
+const terms = useCatalog ? undefined : pick('glossary-terms');
+const lifecycle = useCatalog ? undefined : pick('glossary-lifecycle');
 const termsBody = terms?.entry.body ?? '';
 const lifecycleBody = lifecycle?.entry.body ?? '';
-const usedFallback = pickedDays.some((day) => day.usedFallback) || Boolean(terms?.usedFallback) || Boolean(lifecycle?.usedFallback);
+const usedFallback =
+  pickedDays.some((day) => day.usedFallback) ||
+  Boolean(catalog?.usedFallback && useCatalog) ||
+  Boolean(terms?.usedFallback) ||
+  Boolean(lifecycle?.usedFallback);
 ---
 
 <Base title={t(locale, 'kind.roadmap')} locale={locale}>
   <p><a href={`/${locale}/${tech}/`}>{t(locale, 'nav.backToTech')}</a></p>
   {usedFallback && <p class="fallback">{t(locale, 'fallback.note')}</p>}
   <h1>{t(locale, 'kind.roadmap')}</h1>
-  <RoadmapApp locale={locale} days={days} terms={termsBody} lifecycle={lifecycleBody} />
+  <RoadmapApp locale={locale} days={days} terms={termsBody} lifecycle={lifecycleBody} mode={useCatalog ? 'catalog' : 'days'} />
 </Base>

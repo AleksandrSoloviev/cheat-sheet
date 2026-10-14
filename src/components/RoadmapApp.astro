@@ -9,7 +9,7 @@ interface Question {
 }
 
 interface DayPanel {
-  day: 'day1' | 'day2' | 'day3' | 'optional';
+  day: 'day1' | 'day2' | 'day3' | 'optional' | 'catalog';
   title: string;
   questions: Question[];
 }
@@ -19,30 +19,43 @@ interface Props {
   days: DayPanel[];
   terms: string;
   lifecycle: string;
+  mode?: 'days' | 'catalog';
 }
 
 const { locale, days, terms, lifecycle } = Astro.props;
-const tabs = [
-  ...days.map((day) => ({ id: day.day, label: t(locale, `roadmap.${day.day}` as 'roadmap.day1') })),
-  { id: 'glossary', label: t(locale, 'roadmap.glossary') },
-];
+const mode = Astro.props.mode ?? 'days';
+const isCatalog = mode === 'catalog';
+const tabs = isCatalog
+  ? []
+  : [
+      ...days.map((day) => ({ id: day.day, label: t(locale, `roadmap.${day.day}` as 'roadmap.day1') })),
+      { id: 'glossary', label: t(locale, 'roadmap.glossary') },
+    ];
 ---
 
-<div class="roadmap-app" data-roadmap>
+<div
+  class="roadmap-app"
+  data-roadmap
+  data-catalog={isCatalog ? 'true' : 'false'}
+  data-done-key={isCatalog ? 'next-roadmap-done-v1' : 'vue-roadmap-done-v1'}
+  data-tab-key={isCatalog ? undefined : 'vue-roadmap-tab-v1'}
+>
 <p class="progress"><span data-roadmap-count>0</span> {t(locale, 'roadmap.done')}</p>
-<div class="tabs" role="tablist">
-  {
-    tabs.map((tab) => (
-      <button type="button" class="tab" data-tab={tab.id} aria-pressed="false">
-        {tab.label}
-      </button>
-    ))
-  }
-</div>
+{
+  !isCatalog && (
+    <div class="tabs" role="tablist">
+      {tabs.map((tab) => (
+        <button type="button" class="tab" data-tab={tab.id} aria-pressed="false">
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 {
   days.map((day) => (
-    <section class="day-panel" data-panel={day.day} hidden>
+    <section class="day-panel" data-panel={day.day} hidden={isCatalog ? undefined : true}>
       <div class="day-head">
         <h2>{day.title}</h2>
       </div>
@@ -62,6 +75,8 @@ const tabs = [
   ))
 }
 
+{
+  !isCatalog && (
 <section class="day-panel" data-panel="glossary" hidden>
   <div class="tabs">
     <button type="button" class="tab" data-gloss="terms" aria-pressed="true">{t(locale, 'roadmap.terms')}</button>
@@ -70,20 +85,27 @@ const tabs = [
   <div data-gloss-panel="terms" set:html={renderMarkdown(terms)} />
   <div data-gloss-panel="lifecycle" hidden set:html={renderMarkdown(lifecycle)} />
 </section>
+  )
+}
 
 </div>
 <script is:inline>
   document.querySelectorAll('[data-roadmap]').forEach(function (root) {
-    var doneKey = 'vue-roadmap-done-v1';
-    var tabKey = 'vue-roadmap-tab-v1';
+    var catalog = root.getAttribute('data-catalog') === 'true';
+    var doneKey = root.getAttribute('data-done-key') || (catalog ? '' : 'vue-roadmap-done-v1');
+    var tabKey = root.getAttribute('data-tab-key') || '';
     var storageOk = true;
     var done = new Set();
-    try {
-      var parsed = JSON.parse(localStorage.getItem(doneKey) || '[]');
-      if (Array.isArray(parsed)) parsed.forEach(function (id) { done.add(String(id)); });
-    } catch (error) {
+    if (!doneKey) {
       storageOk = false;
-      done = new Set();
+    } else {
+      try {
+        var parsed = JSON.parse(localStorage.getItem(doneKey) || '[]');
+        if (Array.isArray(parsed)) parsed.forEach(function (id) { done.add(String(id)); });
+      } catch (error) {
+        storageOk = false;
+        done = new Set();
+      }
     }
 
     function showTab(name) {
@@ -93,7 +115,7 @@ const tabs = [
       root.querySelectorAll('[data-tab]').forEach(function (button) {
         button.setAttribute('aria-pressed', button.getAttribute('data-tab') === name ? 'true' : 'false');
       });
-      if (!storageOk) return;
+      if (!storageOk || !tabKey) return;
       try { localStorage.setItem(tabKey, name); } catch (error) {}
     }
 
@@ -102,16 +124,18 @@ const tabs = [
       if (node) node.textContent = String(done.size);
     }
 
-    root.querySelectorAll('[data-check]').forEach(function (input) {
-      var id = input.getAttribute('data-check') || '';
-      input.checked = done.has(id);
-      input.addEventListener('change', function () {
-        if (input.checked) done.add(id);
-        else done.delete(id);
-        updateCount();
-        try { localStorage.setItem(doneKey, JSON.stringify(Array.from(done))); } catch (error) {}
+    if (doneKey) {
+      root.querySelectorAll('[data-check]').forEach(function (input) {
+        var id = input.getAttribute('data-check') || '';
+        input.checked = storageOk && done.has(id);
+        input.addEventListener('change', function () {
+          if (input.checked) done.add(id);
+          else done.delete(id);
+          updateCount();
+          try { localStorage.setItem(doneKey, JSON.stringify(Array.from(done))); } catch (error) {}
+        });
       });
-    });
+    }
 
     root.querySelectorAll('[data-tab]').forEach(function (button) {
       button.addEventListener('click', function () {
@@ -131,12 +155,14 @@ const tabs = [
       });
     });
 
-    var initial = 'day1';
-    if (storageOk) {
-      try { initial = localStorage.getItem(tabKey) || 'day1'; } catch (error) { initial = 'day1'; }
+    if (!catalog) {
+      var initial = 'day1';
+      if (storageOk && tabKey) {
+        try { initial = localStorage.getItem(tabKey) || 'day1'; } catch (error) { initial = 'day1'; }
+      }
+      if (!root.querySelector('[data-panel="' + initial + '"]')) initial = 'day1';
+      showTab(initial);
     }
-    if (!root.querySelector('[data-panel="' + initial + '"]')) initial = 'day1';
-    showTab(initial);
     updateCount();
   });
 </script>

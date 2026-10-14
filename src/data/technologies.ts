@@ -9,6 +9,11 @@ export const technologies = [
     order: 2,
     kinds: ['cards'],
   },
+  {
+    slug: 'next',
+    order: 3,
+    kinds: ['roadmap'],
+  },
 ] as const;
 
 export type TechnologySlug = (typeof technologies)[number]['slug'];
