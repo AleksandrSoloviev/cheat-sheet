@@ -25,7 +25,7 @@ Inside a technology, cards, the conspect, and the study plan stay separate colle
 ## Content Constraints
 
 - Locales are `ru` and `en`. Russian is the default and the fallback when an English file is missing.
-- Technology slugs: `vue`, `javascript`, `next`. Do not add `react` or `backend` until a work item asks for them.
+- Technology slugs: `vue`, `javascript`, `next`, `epam-react`. Do not add `react` or `backend` until a work item asks for them.
 - No test runner is configured.
 
 ## Change Workflow
@@ -38,4 +38,4 @@ Inside a technology, cards, the conspect, and the study plan stay separate colle
 
 This constitution records the shape of the cheat-sheet site. If a work item changes that shape, amend this file in the same change.
 
-**Version**: 1.2.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-14
+**Version**: 1.3.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-15

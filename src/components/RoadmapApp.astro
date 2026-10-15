@@ -6,12 +6,16 @@ interface Question {
   id: string;
   title: string;
   body: string;
+  label?: string;
+  topic?: string;
+  note?: string;
 }
 
 interface DayPanel {
-  day: 'day1' | 'day2' | 'day3' | 'optional' | 'catalog';
+  day: string;
   title: string;
   questions: Question[];
+  interviewer?: string;
 }
 
 interface Props {
@@ -19,30 +23,48 @@ interface Props {
   days: DayPanel[];
   terms: string;
   lifecycle: string;
-  mode?: 'days' | 'catalog';
+  mode?: 'days' | 'catalog' | 'interviews';
+  doneKey?: string;
 }
 
 const { locale, days, terms, lifecycle } = Astro.props;
 const mode = Astro.props.mode ?? 'days';
 const isCatalog = mode === 'catalog';
-const tabs = isCatalog
+const isInterviews = mode === 'interviews';
+const isStacked = isCatalog || isInterviews;
+const doneKey = isInterviews
+  ? (Astro.props.doneKey ?? '')
+  : isCatalog
+    ? Astro.props.doneKey || 'next-roadmap-done-v1'
+    : 'vue-roadmap-done-v1';
+const tabs = isStacked
   ? []
   : [
       ...days.map((day) => ({ id: day.day, label: t(locale, `roadmap.${day.day}` as 'roadmap.day1') })),
       { id: 'glossary', label: t(locale, 'roadmap.glossary') },
     ];
+
+function withTopics(questions: Question[]) {
+  let previous = '';
+  return questions.map((question) => {
+    const showTopic = Boolean(question.topic) && question.topic !== previous;
+    if (question.topic) previous = question.topic;
+    return { ...question, showTopic };
+  });
+}
 ---
 
 <div
   class="roadmap-app"
   data-roadmap
   data-catalog={isCatalog ? 'true' : 'false'}
-  data-done-key={isCatalog ? 'next-roadmap-done-v1' : 'vue-roadmap-done-v1'}
-  data-tab-key={isCatalog ? undefined : 'vue-roadmap-tab-v1'}
+  data-stacked={isInterviews ? 'true' : 'false'}
+  data-done-key={doneKey || undefined}
+  data-tab-key={isStacked ? undefined : 'vue-roadmap-tab-v1'}
 >
 <p class="progress"><span data-roadmap-count>0</span> {t(locale, 'roadmap.done')}</p>
 {
-  !isCatalog && (
+  !isStacked && (
     <div class="tabs" role="tablist">
       {tabs.map((tab) => (
         <button type="button" class="tab" data-tab={tab.id} aria-pressed="false">
@@ -55,28 +77,43 @@ const tabs = isCatalog
 
 {
   days.map((day) => (
-    <section class="day-panel" data-panel={day.day} hidden={isCatalog ? undefined : true}>
+    <section class="day-panel" data-panel={day.day} hidden={isStacked ? undefined : true}>
       <div class="day-head">
         <h2>{day.title}</h2>
+        {day.interviewer && (
+          <p class="interview-meta">
+            {t(locale, 'roadmap.interviewer')}: {day.interviewer}
+          </p>
+        )}
       </div>
-      {day.questions.map((question) => (
-        <details class="q" data-day={day.day}>
-          <summary class="q-sum">
-            <label class="check" onclick="event.stopPropagation()">
-              <input type="checkbox" data-check={question.id} />
-            </label>
-            <span class="qid">Q{question.id}</span>
-            <span class="qtitle">{question.title}</span>
-          </summary>
-          <div class="q-body" set:html={renderMarkdown(question.body)} />
-        </details>
+      {withTopics(day.questions).map((question) => (
+        <div class="q-block">
+          {question.showTopic && <h3 class="topic-head">{question.topic}</h3>}
+          <details class="q" data-day={day.day}>
+            <summary class="q-sum">
+              <label class="check" onclick="event.stopPropagation()">
+                <input type="checkbox" data-check={question.id} />
+              </label>
+              <span class="qid">{question.label ?? `Q${question.id}`}</span>
+              <span class="qtitle">{question.title}</span>
+            </summary>
+            <div class="q-body">
+              {question.note && (
+                <p class="source-note">
+                  {t(locale, 'roadmap.note')}: {question.note}
+                </p>
+              )}
+              <div set:html={renderMarkdown(question.body)} />
+            </div>
+          </details>
+        </div>
       ))}
     </section>
   ))
 }
 
 {
-  !isCatalog && (
+  !isStacked && (
 <section class="day-panel" data-panel="glossary" hidden>
   <div class="tabs">
     <button type="button" class="tab" data-gloss="terms" aria-pressed="true">{t(locale, 'roadmap.terms')}</button>
@@ -92,7 +129,12 @@ const tabs = isCatalog
 <script is:inline>
   document.querySelectorAll('[data-roadmap]').forEach(function (root) {
     var catalog = root.getAttribute('data-catalog') === 'true';
-    var doneKey = root.getAttribute('data-done-key') || (catalog ? '' : 'vue-roadmap-done-v1');
+    var stacked = root.getAttribute('data-stacked') === 'true';
+    var doneKey = root.getAttribute('data-done-key') || '';
+    if (!doneKey) {
+      if (catalog) doneKey = 'next-roadmap-done-v1';
+      else if (!stacked) doneKey = 'vue-roadmap-done-v1';
+    }
     var tabKey = root.getAttribute('data-tab-key') || '';
     var storageOk = true;
     var done = new Set();
@@ -155,7 +197,7 @@ const tabs = isCatalog
       });
     });
 
-    if (!catalog) {
+    if (!catalog && !stacked) {
       var initial = 'day1';
       if (storageOk && tabKey) {
         try { initial = localStorage.getItem(tabKey) || 'day1'; } catch (error) { initial = 'day1'; }

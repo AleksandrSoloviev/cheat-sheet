@@ -14,11 +14,12 @@ A static site of cheat sheets grouped by technology, in Russian and English. Vue
 - `vue`: cards, conspect, and a study plan with saved checkboxes.
 - `javascript`: cards only.
 - `next`: a study plan only, questions 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 16, 17, 18, 19, 20, 21, and 22.
+- `epam-react`: a study plan only, seven DBS React interviews, 259 questions with answers in Russian and English.
 - Spec Kit files under `.specify/` and `.cursor/commands/`.
 
 ## Non-Goals
 
-- Sections for React and backend are not in the registry or the content tree.
+- A general `react` section and backend are not in the registry or the content tree. `epam-react` is only the EPAM interview plan.
 - Next has no cards and no conspect. Questions 10 and 12–15 are not published yet.
 - No accounts, database, or in-browser editor.
 - GitHub Actions publishes the static site to GitHub Pages on push to `main`. Locally the site stays at `/`. The Pages build uses the repository name as the base path.

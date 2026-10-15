@@ -129,7 +129,11 @@ th { background: #1a2430; color: var(--accent2); }
 .q { border: 1px solid var(--line); background: var(--card); margin-top: 10px; }
 .q-sum { cursor: pointer; display: flex; gap: 10px; align-items: center; padding: 12px 14px; }
 .qtitle { flex: 1; }
-.qid { color: var(--accent2); font-weight: 600; }
+.qid { color: var(--accent2); font-weight: 600; flex: none; }
+.q-block { display: contents; }
+.interview-meta { color: var(--muted); margin: 0 0 8px; }
+.topic-head { margin: 22px 0 0; font-size: 1.05rem; }
+.source-note { color: var(--muted); margin: 0 0 12px; }
 .q-body { border-top: 1px solid var(--line); padding: 14px 16px 16px; }
 .q-body h4 {
   margin: 16px 0 8px;

@@ -34,34 +34,74 @@ function pick(day: string) {
   return { entry: russian, usedFallback: locale !== 'ru' };
 }
 
+const interviewOrder = [
+  'sirisha-wealth',
+  'sree-wealth',
+  'sree-digibank',
+  'aravind-digibank',
+  'rafeeq-digibank',
+  'suryateja-digibank',
+  'nagendra-digibank',
+] as const;
+
+const pickedInterviews = interviewOrder.flatMap((name) => {
+  const picked = pick(name);
+  if (!picked || !('interview' in picked.entry.data)) return [];
+  const data = picked.entry.data;
+  return [
+    {
+      day: data.interview,
+      title: data.title,
+      interviewer: data.interviewer,
+      questions: data.questions,
+      order: data.order,
+      usedFallback: picked.usedFallback,
+    },
+  ];
+});
+pickedInterviews.sort((left, right) => left.order - right.order);
+
 const dayOrder = ['day1', 'day2', 'day3', 'optional'] as const;
 const pickedDays = dayOrder.flatMap((day) => {
   const picked = pick(day);
-  if (!picked) return [];
+  if (!picked || !('day' in picked.entry.data)) return [];
   return [{ day, title: picked.entry.data.title, questions: picked.entry.data.questions, usedFallback: picked.usedFallback }];
 });
 const catalog = pick('catalog');
-const useCatalog = pickedDays.length === 0 && Boolean(catalog);
+const catalogData = catalog && 'day' in catalog.entry.data ? catalog.entry.data : undefined;
+const useInterviews = pickedInterviews.length > 0;
+const useCatalog = !useInterviews && pickedDays.length === 0 && Boolean(catalogData);
 function byNumber(questions: { id: string; title: string; body: string }[]) {
   return [...questions].sort((left, right) => Number(left.id) - Number(right.id));
 }
-const days = useCatalog && catalog
-  ? [{ day: 'catalog' as const, title: catalog.entry.data.title, questions: byNumber(catalog.entry.data.questions) }]
-  : pickedDays.map(({ day, title, questions }) => ({ day, title, questions }));
-const terms = useCatalog ? undefined : pick('glossary-terms');
-const lifecycle = useCatalog ? undefined : pick('glossary-lifecycle');
+const days = useInterviews
+  ? pickedInterviews.map(({ day, title, interviewer, questions }) => ({ day, title, interviewer, questions }))
+  : useCatalog && catalogData
+    ? [{ day: 'catalog' as const, title: catalogData.title, questions: byNumber(catalogData.questions) }]
+    : pickedDays.map(({ day, title, questions }) => ({ day, title, questions }));
+const terms = useInterviews || useCatalog ? undefined : pick('glossary-terms');
+const lifecycle = useInterviews || useCatalog ? undefined : pick('glossary-lifecycle');
 const termsBody = terms?.entry.body ?? '';
 const lifecycleBody = lifecycle?.entry.body ?? '';
 const usedFallback =
+  pickedInterviews.some((item) => item.usedFallback) ||
   pickedDays.some((day) => day.usedFallback) ||
   Boolean(catalog?.usedFallback && useCatalog) ||
   Boolean(terms?.usedFallback) ||
   Boolean(lifecycle?.usedFallback);
+const mode = useInterviews ? 'interviews' : useCatalog ? 'catalog' : 'days';
 ---
 
 <Base title={t(locale, 'kind.roadmap')} locale={locale}>
   <p><a href={withBase(`/${locale}/${tech}/`)}>{t(locale, 'nav.backToTech')}</a></p>
   {usedFallback && <p class="fallback">{t(locale, 'fallback.note')}</p>}
   <h1>{t(locale, 'kind.roadmap')}</h1>
-  <RoadmapApp locale={locale} days={days} terms={termsBody} lifecycle={lifecycleBody} mode={useCatalog ? 'catalog' : 'days'} />
+  <RoadmapApp
+    locale={locale}
+    days={days}
+    terms={termsBody}
+    lifecycle={lifecycleBody}
+    mode={mode}
+    doneKey={tech === 'epam-react' ? 'epam-react-roadmap-done-v1' : tech === 'next' ? 'next-roadmap-done-v1' : undefined}
+  />
 </Base>

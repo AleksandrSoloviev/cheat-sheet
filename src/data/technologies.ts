@@ -14,6 +14,11 @@ export const technologies = [
     order: 3,
     kinds: ['roadmap'],
   },
+  {
+    slug: 'epam-react',
+    order: 4,
+    kinds: ['roadmap'],
+  },
 ] as const;
 
 export type TechnologySlug = (typeof technologies)[number]['slug'];

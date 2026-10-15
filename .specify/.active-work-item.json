@@ -1,7 +1,7 @@
 {
-  "name": "004-next-rsc-cache",
-  "path": "specs/004-next-rsc-cache/",
-  "mode": "lite",
-  "description": "Добавить в план Next.js вопросы 1, 2, 3, 4, 8, 9, 11 и 16: Server и Client Components, импорт через children, сериализация props, server-only и client-only, кэш fetch в Next.js 15, слои кэша, static и dynamic rendering с PPR, RSC payload.",
-  "created": "2026-10-15T19:37:12Z"
+  "name": "005-epam-react",
+  "path": "specs/005-epam-react/",
+  "mode": "full",
+  "description": "Добавить раздел «Епам Реакт»: распарсить DBS ReactJS Interview Questions и перевести вопросы на русский.",
+  "created": "2026-10-15T20:28:10Z"
 }
