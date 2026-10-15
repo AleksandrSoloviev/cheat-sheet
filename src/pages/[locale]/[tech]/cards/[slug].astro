@@ -3,7 +3,7 @@ import { getCollection, render } from 'astro:content';
 import Base from '../../../../layouts/Base.astro';
 import { technologyHasKind } from '../../../../data/technologies';
 import { entrySlug, entryWithFallback } from '../../../../lib/entries';
-import { isLocale, t, technologyLabel, type Locale } from '../../../../i18n/ui';
+import { isLocale, t, technologyLabel, withBase, type Locale } from '../../../../i18n/ui';
 
 export async function getStaticPaths() {
   const cards = await getCollection('cards');
@@ -24,7 +24,7 @@ const localeParam = Astro.params.locale;
 const tech = Astro.params.tech ?? '';
 const slug = Astro.params.slug ?? '';
 if (!isLocale(localeParam) || !technologyHasKind(tech, 'cards')) {
-  return Astro.redirect('/ru/');
+  return Astro.redirect(withBase('/ru/'));
 }
 const locale: Locale = localeParam;
 const { entry, usedFallback } = await entryWithFallback('cards', locale, tech, slug);
@@ -35,7 +35,7 @@ const { Content } = await render(entry);
 ---
 
 <Base title={entry.data.title} locale={locale}>
-  <p><a href={`/${locale}/${tech}/`}>{t(locale, 'nav.backToTech')}</a> · {technologyLabel(locale, tech)}</p>
+  <p><a href={withBase(`/${locale}/${tech}/`)}>{t(locale, 'nav.backToTech')}</a> · {technologyLabel(locale, tech)}</p>
   {usedFallback && <p class="fallback">{t(locale, 'fallback.note')}</p>}
   <article class="article">
     <h1>{entry.data.title}</h1>

@@ -1,3 +1,5 @@
 ---
-return Astro.redirect('/ru/');
+import { withBase } from '../i18n/ui';
+
+return Astro.redirect(withBase('/ru/'));
 ---

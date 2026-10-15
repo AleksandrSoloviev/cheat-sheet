@@ -1,7 +1,7 @@
 ---
 import '../styles/global.css';
 import LocaleSwitch from '../components/LocaleSwitch.astro';
-import { isLocale, t, type Locale } from '../i18n/ui';
+import { localeFromPathname, t, withBase, type Locale } from '../i18n/ui';
 
 interface Props {
   title: string;
@@ -9,8 +9,7 @@ interface Props {
 }
 
 const { title, locale: localeProp } = Astro.props;
-const fromPath = Astro.url.pathname.split('/').filter(Boolean)[0];
-const locale: Locale = localeProp ?? (isLocale(fromPath) ? fromPath : 'ru');
+const locale: Locale = localeProp ?? localeFromPathname(Astro.url.pathname);
 ---
 
 <html lang={locale}>
@@ -27,7 +26,7 @@ const locale: Locale = localeProp ?? (isLocale(fromPath) ? fromPath : 'ru');
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href={`/${locale}/`}>{t(locale, 'site.title')}</a>
+      <a class="brand" href={withBase(`/${locale}/`)}>{t(locale, 'site.title')}</a>
       <LocaleSwitch locale={locale} pathname={Astro.url.pathname} />
     </header>
     <main class="wrap">

@@ -75,12 +75,35 @@ export function technologyLabel(locale: Locale, slug: string): string {
   return local[key] ?? russian[key] ?? slug;
 }
 
+function basePath(): string {
+  const base = import.meta.env.BASE_URL;
+  return !base || base === '/' ? '' : base.replace(/\/$/, '');
+}
+
+export function withBase(path: string): string {
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  return `${basePath()}${suffix}`;
+}
+
+export function withoutBase(pathname: string): string {
+  const prefix = basePath();
+  if (prefix && (pathname === prefix || pathname.startsWith(`${prefix}/`))) {
+    return pathname.slice(prefix.length) || '/';
+  }
+  return pathname;
+}
+
+export function localeFromPathname(pathname: string): Locale {
+  const segment = withoutBase(pathname).split('/').filter(Boolean)[0];
+  return isLocale(segment) ? segment : 'ru';
+}
+
 export function swapLocalePath(pathname: string, next: Locale): string {
-  const parts = pathname.split('/');
+  const rest = withoutBase(pathname);
+  const parts = rest.split('/');
   if (parts[1] === 'ru' || parts[1] === 'en') {
     parts[1] = next;
-    const nextPath = parts.join('/');
-    return nextPath.endsWith('/') || nextPath.includes('.', 1) ? nextPath : `${nextPath}`;
+    return `${basePath()}${parts.join('/')}`;
   }
-  return `/${next}/`;
+  return withBase(`/${next}/`);
 }

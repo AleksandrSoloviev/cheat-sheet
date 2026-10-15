@@ -3,7 +3,7 @@ import { getCollection } from 'astro:content';
 import Base from '../../../layouts/Base.astro';
 import RoadmapApp from '../../../components/RoadmapApp.astro';
 import { technologyHasKind } from '../../../data/technologies';
-import { isLocale, t, type Locale } from '../../../i18n/ui';
+import { isLocale, t, withBase, type Locale } from '../../../i18n/ui';
 
 export async function getStaticPaths() {
   const items = await getCollection('roadmap');
@@ -21,7 +21,7 @@ export async function getStaticPaths() {
 const localeParam = Astro.params.locale;
 const tech = Astro.params.tech ?? '';
 if (!isLocale(localeParam) || !technologyHasKind(tech, 'roadmap')) {
-  return Astro.redirect('/ru/');
+  return Astro.redirect(withBase('/ru/'));
 }
 const locale: Locale = localeParam;
 const items = await getCollection('roadmap');
@@ -60,7 +60,7 @@ const usedFallback =
 ---
 
 <Base title={t(locale, 'kind.roadmap')} locale={locale}>
-  <p><a href={`/${locale}/${tech}/`}>{t(locale, 'nav.backToTech')}</a></p>
+  <p><a href={withBase(`/${locale}/${tech}/`)}>{t(locale, 'nav.backToTech')}</a></p>
   {usedFallback && <p class="fallback">{t(locale, 'fallback.note')}</p>}
   <h1>{t(locale, 'kind.roadmap')}</h1>
   <RoadmapApp locale={locale} days={days} terms={termsBody} lifecycle={lifecycleBody} mode={useCatalog ? 'catalog' : 'days'} />

@@ -20,7 +20,8 @@ A static site of cheat sheets grouped by technology, in Russian and English. Vue
 
 - Sections for React and backend are not in the registry or the content tree.
 - Next has no cards and no conspect. Questions 10 and 12–15 are not published yet.
-- No accounts, database, in-browser editor, or public deploy config.
+- No accounts, database, or in-browser editor.
+- GitHub Actions publishes the static site to GitHub Pages on push to `main`. Locally the site stays at `/`. The Pages build uses the repository name as the base path.
 
 ## Open Questions
 

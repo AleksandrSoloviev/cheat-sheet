@@ -1,23 +1,28 @@
 ---
 import Base from '../layouts/Base.astro';
-import { isLocale, t, type Locale } from '../i18n/ui';
+import { localeFromPathname, t, withBase } from '../i18n/ui';
 
-const segment = Astro.url.pathname.split('/').filter(Boolean)[0];
-const locale: Locale = isLocale(segment) ? segment : 'ru';
+const locale = localeFromPathname(Astro.url.pathname);
+const base = import.meta.env.BASE_URL;
 ---
 
 <Base title={t(locale, 'notFound.title')} locale={locale}>
-  <script is:inline>
+  <script is:inline define:vars={{ base }}>
     (function () {
-      var parts = location.pathname.split('/').filter(Boolean);
+      var prefix = !base || base === '/' ? '' : base.replace(/\/$/, '');
+      var path = location.pathname;
+      if (prefix && (path === prefix || path.indexOf(prefix + '/') === 0)) {
+        path = path.slice(prefix.length) || '/';
+      }
+      var parts = path.split('/').filter(Boolean);
       var first = parts[0];
       if (!first || first === 'ru' || first === 'en') return;
       parts[0] = 'ru';
-      var next = '/' + parts.join('/');
-      if (!next.endsWith('/')) next += '/';
+      var next = prefix + '/' + parts.join('/');
+      if (next.charAt(next.length - 1) !== '/') next += '/';
       location.replace(next + location.search + location.hash);
     })();
   </script>
   <h1>{t(locale, 'notFound.title')}</h1>
-  <p><a href={`/${locale}/`}>{t(locale, 'notFound.home')}</a></p>
+  <p><a href={withBase(`/${locale}/`)}>{t(locale, 'notFound.home')}</a></p>
 </Base>

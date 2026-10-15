@@ -20,5 +20,6 @@
 
 ## Infrastructure and Delivery
 
-- No Dockerfile, Makefile, or CI config.
+- No Dockerfile or Makefile.
 - `npm run build` writes static files to `dist/`.
+- `.github/workflows/deploy.yml` builds with `withastro/action` and publishes `dist/` to GitHub Pages. On that build, `site` is `https://<owner>.github.io` and `base` is `/<repo>`. A local build keeps `base` at `/`.
