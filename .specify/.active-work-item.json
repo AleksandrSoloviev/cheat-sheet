@@ -1,7 +1,7 @@
 {
-  "name": "003-next-q17-22",
-  "path": "specs/003-next-q17-22/",
+  "name": "004-next-rsc-cache",
+  "path": "specs/004-next-rsc-cache/",
   "mode": "lite",
-  "description": "Добавить в план Next.js вопросы 17, 18, 19, 21 и 22 и дополнить вопрос 20 разбором middleware, Metadata API, next/image, next/font, next/script, ошибок и 404, аутентификации, Turbopack и Next.js 15.",
-  "created": "2026-10-14T20:50:26Z"
+  "description": "Добавить в план Next.js вопросы 1, 2, 3, 4, 8, 9, 11 и 16: Server и Client Components, импорт через children, сериализация props, server-only и client-only, кэш fetch в Next.js 15, слои кэша, static и dynamic rendering с PPR, RSC payload.",
+  "created": "2026-10-15T19:37:12Z"
 }

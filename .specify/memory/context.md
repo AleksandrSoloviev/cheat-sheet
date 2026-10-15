@@ -13,13 +13,13 @@ A static site of cheat sheets grouped by technology, in Russian and English. Vue
 - Astro site in the repo root. Locales `ru` (default) and `en`.
 - `vue`: cards, conspect, and a study plan with saved checkboxes.
 - `javascript`: cards only.
-- `next`: a study plan only, questions 5, 6, 7, 17, 18, 19, 20, 21, and 22.
+- `next`: a study plan only, questions 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 16, 17, 18, 19, 20, 21, and 22.
 - Spec Kit files under `.specify/` and `.cursor/commands/`.
 
 ## Non-Goals
 
 - Sections for React and backend are not in the registry or the content tree.
-- Next has no cards and no conspect. Questions 1–4 and 8–16 are not published yet.
+- Next has no cards and no conspect. Questions 10 and 12–15 are not published yet.
 - No accounts, database, in-browser editor, or public deploy config.
 
 ## Open Questions

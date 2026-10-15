@@ -2,6 +2,222 @@
 day: catalog
 title: "Next.js questions"
 questions:
+  - id: "1"
+    title: "How do Server Components differ from Client Components?"
+    body: |
+      #### Short answer
+
+      In the App Router a component is a Server Component by default until it falls under a client boundary. A Server Component runs on the server, at build time or during a request. Its own JavaScript is not part of the client bundle. It can be `async` and can talk directly to a database, files, and secrets. It cannot use `useState`, `useEffect`, or browser APIs.
+
+      Data returned in JSX can still appear in the HTML or in the RSC response. A Server Component does not by itself mean that every piece of data is protected.
+
+      `"use client"` creates a client module-graph boundary. Modules imported statically from that file enter the graph and can land in the client bundle. A Client Component can use state, effects, event handlers, and browser APIs such as `window`, `document`, and `localStorage` in a suitable context. An ordinary Client Component cannot be `async`. It has no direct database access: that needs a server layer.
+
+      A Client Component does not mean rendering only in the browser. On the first load Next.js usually prerenders it to HTML on the server, and then React hydrates it in the browser.
+
+      A tree that is visually inside a Client Component does not become client-side as a whole. A Server Component can pass JSX that was already created on the server through `children`.
+
+      Use Server Components by default for pages, data loading, database reads, and content that does not need client interactivity. Add a Client Component for forms, modals, local state, event handlers, or browser APIs. A Client Component can also render static text, but there is no reason to make it client-side without a need. Permission checks run on the server, and they do not have to live inside the component itself: a service, a DAL, or an API can own them.
+
+      On an account page, the balance and the history are Server Components. A modal button and a transfer form with its own state are Client Components. The permission check and the transfer itself stay server logic.
+
+      | | Server Component | Client Component |
+      | --- | --- | --- |
+      | Where it runs | On the server | In the browser; the first render can also run on the server |
+      | `useState` / `useEffect` | No | Yes |
+      | Event handlers | No | Yes |
+      | Direct database access | Yes | No, a server layer is required |
+      | Component code in the client bundle | No | Yes |
+      | `async` component | Yes | No |
+      | Default in the App Router | Yes | No |
+
+      #### Code example
+
+      ```tsx
+      export default async function UsersPage() {
+        const users = await db.user.findMany();
+
+        return (
+          <ul>
+            {users.map((user) => (
+              <li key={user.id}>{user.name}</li>
+            ))}
+          </ul>
+        );
+      }
+      ```
+
+      ```tsx
+      'use client';
+
+      import { useState } from 'react';
+
+      export default function Counter() {
+        const [count, setCount] = useState(0);
+
+        return (
+          <button type="button" onClick={() => setCount(count + 1)}>
+            Count: {count}
+          </button>
+        );
+      }
+      ```
+
+      A server page can import the client `Counter` and keep loading the user on the server.
+
+      #### Phrase to recite
+
+      In the App Router everything is server by default. A Server Component runs on the server, can be `async`, can reach the database and secrets, and its JS does not enter the client bundle. State, effects, and browser APIs are not available there. `"use client"` is a module boundary: a static import from that file can enter the client bundle. A Client Component is also prerendered to HTML and then hydrated. Put interactivity on the client, keep permission checks on the server, and do not treat data in JSX as a secret by itself.
+  - id: "2"
+    title: "Can you import a Server Component into a Client Component?"
+    body: |
+      #### Short answer
+
+      Not directly. If a Client Component statically imports a Server Component, that module enters the client graph. Database access does not stay a server execution.
+
+      Pass JSX that was already created on the server through `children` or another prop. This is the holes pattern: the Client Component leaves a slot, and the Server Component passes the finished result. The shell does not call the server component itself. As a prop it looks like `content={<ServerList />}`. You can pass values the RSC protocol supports, not an arbitrary server value.
+
+      The other direction is allowed. A Server Component can import a Client Component directly, for example an interactive button.
+
+      A client shell cannot, on a button click, call that Server Component again and reach the database. `children` already holds the result of the server render. This write-up does not specify how to request the data again.
+
+      #### Code example
+
+      ```tsx
+      'use client';
+
+      import ServerList from './ServerList';
+
+      export default function ClientShell() {
+        return <ServerList />;
+      }
+      ```
+
+      That import makes `ServerList` part of the client graph. The server page builds the result itself and passes it into the shell:
+
+      ```tsx
+      import ClientShell from './ClientShell';
+      import ServerList from './ServerList';
+
+      export default function Page() {
+        return (
+          <ClientShell>
+            <ServerList />
+          </ClientShell>
+        );
+      }
+      ```
+
+      ```tsx
+      'use client';
+
+      export default function ClientShell({ children }: { children: React.ReactNode }) {
+        return <div className="shell">{children}</div>;
+      }
+      ```
+
+      The same result can be passed as a prop: `<ClientShell content={<ServerList />} />`.
+
+      #### Phrase to recite
+
+      An import defines the module graph: a Server Component imported into a Client Component becomes client-side. Pass JSX that was already created on the server through `children` or a prop, and the shell does not call that component itself. A Server Component can still import a Client Component directly. A button cannot reach the database again through the same `children`: that value is already a render result.
+  - id: "3"
+    title: "What can you pass from an RSC to a Client Component through props?"
+    body: |
+      #### Short answer
+
+      A Server Component and a Client Component can run in different environments, so a value crosses the RSC protocol. That is not `JSON.stringify()`.
+
+      You can pass primitives: `string`, `number`, `boolean`, `null`, `undefined`, and `bigint`. You can pass arrays and plain objects, `Date`, `Map`, `Set`, a `Promise` the client reads with `use()`, JSX, and Server Actions, which are functions marked `"use server"`.
+
+      An ordinary function cannot be passed. It lives in the memory of the server process, and the browser does not receive a callable reference to it. An instance of an arbitrary class cannot be passed either: it can hold methods and internal state the protocol does not restore. Pass `{ name: "Alex" }` instead of `new User("Alex")`. The client creates any extra logic on its own side. The exact limits depend on the value type and the React version.
+
+      A Server Action is different. The client receives a special reference. The call makes a request, the function runs on the server, and its code is not sent to the browser. `"use server"` does not by itself make the call safe: the action checks authorization and the input.
+
+      Serializable means the value can be passed, not that it is safe to reveal. A plain object with `passwordHash` serializes, and the hash reaches the browser if it is included in props. Choose the fields the client needs. A plain object also fails to serialize when it contains an unsupported value, such as an ordinary function.
+
+      `isAdmin: true` in a Client Component's props does not protect an admin page. A client flag can be changed. The permission check stays on the server.
+
+      | Value | Can be passed |
+      | --- | --- |
+      | Primitives, arrays, plain objects | Yes |
+      | `Date`, `Map`, `Set`, `Promise`, JSX | Yes |
+      | Server Action with `"use server"` | Yes, as a reference to a server call |
+      | Ordinary function | No |
+      | Instance of an arbitrary class | No |
+
+      #### Code example
+
+      ```ts
+      'use server';
+
+      export async function updateUser(name: string) {
+        await db.user.update({ name });
+      }
+      ```
+
+      ```tsx
+      return (
+        <UserProfile
+          user={{ id: user.id, name: user.name }}
+          action={updateUser}
+        />
+      );
+      ```
+
+      `passwordHash` and other private fields do not go in that object. `<ClientComponent onClick={() => console.log('Hello')} />` does not work: that is an ordinary function of the server process.
+
+      #### Phrase to recite
+
+      RSC props can carry primitives, plain objects, arrays, `Date`, `Map`, `Set`, `Promise`, JSX, and Server Actions. Ordinary functions and class instances cannot. The protocol is not `JSON.stringify()` and it is not permission to reveal data: a `passwordHash` in a serializable object still reaches the browser. `"use server"` does not replace a permission check. A client `isAdmin` does not protect a page.
+  - id: "4"
+    title: "Why server-only and client-only?"
+    body: |
+      #### Short answer
+
+      `server-only` marks a module as server-only. If it is imported from the client graph, the build fails. That catches an accidental import of a database, secret keys, server logic, and internal services. The package does not replace a check of which data the server sends to the client, and it does not catch a secret you passed through props yourself.
+
+      `client-only` is the opposite boundary. A module that uses `window`, `document`, `localStorage`, or a browser library cannot be imported into the server graph: the build reports that too.
+
+      These are marker packages that Next.js recognizes at build time. They are not protection for every React application, and they do not find every leak.
+
+      A server module entering the client graph can be a security problem, but not every such module reveals secrets by itself. It depends on the contents and on the build. With correct Next.js handling the build can fail, or the server functionality does not become available to the client. If a secret is explicitly inlined into client code, it can end up in the JS bundle and be visible in DevTools. If it did not enter the bundle, that particular leak may not happen, but the boundary mistake remains.
+
+      Environment variables without the `NEXT_PUBLIC_` prefix are usually not inlined into the client bundle by themselves. Do not rely on that alone: a secret can be passed through props, returned from an API, or written into client code.
+
+      If the module's code does land in the bundle, the user may be able to read the logic, the bundle can grow, and server dependencies may not work in the browser. Revealing logic is not always a vulnerability.
+
+      The working shape is: a Client Component calls HTTP or a Server Action, the server layer checks permissions and input, and only then it reaches the database. Secrets stay on the server.
+
+      | | `server-only` | `client-only` |
+      | --- | --- | --- |
+      | Purpose | Server boundary | Client boundary |
+      | What it catches | Import of a server module into the client graph | Import of a client module into the server graph |
+      | Typical module | Database, secrets, server services | `localStorage`, browser APIs |
+
+      #### Code example
+
+      ```ts
+      import 'server-only';
+
+      export async function getUsers() {
+        return db.user.findMany();
+      }
+      ```
+
+      ```ts
+      import 'client-only';
+
+      export function getTheme() {
+        return localStorage.getItem('theme');
+      }
+      ```
+
+      Importing `getUsers` from a file with `"use client"` should stop the build. That still does not stop a separate pass of a secret into a Client Component through props.
+
+      #### Phrase to recite
+
+      `server-only` fails the build if a server module enters the client graph. `client-only` fails it in the other direction. These are boundary markers, not complete secret protection: a non-`NEXT_PUBLIC_` variable is not inlined into the client bundle by itself, but a secret can still be sent through props, an API, or client code. Secrets and permission checks stay on the server behind HTTP or a Server Action.
   - id: "5"
     title: "App Router special files"
     body: |
@@ -301,6 +517,194 @@ questions:
       #### Phrase to recite
 
       In the current App Router, `params` and `searchParams` are Promises: `await` on the server, `use()` on the client. `cookies()`, `headers()`, and `draftMode()` are async too and can make rendering dynamic because the response depends on the request. A dynamic `[id]` route is not the same thing as dynamic rendering, and `await` here does not mean a network request.
+  - id: "8"
+    title: "How is fetch cached in Next.js 15?"
+    body: |
+      #### Short answer
+
+      In Next.js 15 a server `fetch` does not store its result in the Data Cache by default. In Next.js 14 the typical behavior was `force-cache`. That does not mean every call must go to the network.
+
+      Turn the cache on explicitly. `cache: 'force-cache'` uses a matching Data Cache entry. `next: { revalidate: 60, tags: ['boards'] }` sets how long the result can be reused and the tags. `revalidate: 60` does not guarantee a refresh exactly 60 seconds later: revalidation can happen on the next request, and the details depend on the cache mechanism. A tag can invalidate related entries, for example through `revalidateTag('boards')`.
+
+      These are three different mechanisms. Request Memoization deduplicates identical GETs in one render pass, even when the Data Cache is off: the second identical call does not have to hit the external API again. The Data Cache stores a `fetch` result across requests. The Full Route Cache stores the HTML and RSC payload of a static route. The full route cache is tied to data caching and to whether rendering is dynamic.
+
+      Two calls to the same `getBoards()` in one server render, with no extra settings, are deduplicated. The same two calls in two different HTTP requests to the app are two renders. Without a Data Cache, each of them can perform a network request.
+
+      On a segment, `export const revalidate = 60` sets the route revalidation interval. `export const dynamic = 'force-static'` forces static behavior for the route. That is not the cache of one `fetch`. `export const fetchCache = 'default-cache'` changes the `fetch` default in the segment: a request without its own cache setting uses `force-cache`.
+
+      #### Code example
+
+      ```ts
+      const response = await fetch('https://api.example.com/boards', {
+        cache: 'force-cache',
+      });
+      ```
+
+      ```ts
+      const response = await fetch('https://api.example.com/boards', {
+        next: {
+          revalidate: 60,
+          tags: ['boards'],
+        },
+      });
+      ```
+
+      ```ts
+      export const revalidate = 60;
+      export const dynamic = 'force-static';
+      export const fetchCache = 'default-cache';
+      ```
+
+      | Mechanism | Where it lives |
+      | --- | --- |
+      | Request Memoization | One render, identical GETs |
+      | Data Cache | Server, across requests. In 15 you turn it on explicitly |
+      | Full Route Cache | HTML and RSC payload of a static route |
+
+      #### Phrase to recite
+
+      In Next.js 15 `fetch` does not write its result to the Data Cache by default. Turn the cache on with `cache: 'force-cache'` or with `next.revalidate` and `next.tags`. A segment can set `revalidate`, `dynamic = 'force-static'`, and `fetchCache = 'default-cache'`. Identical GETs in one render are deduplicated by Request Memoization even without a persistent cache. In two different HTTP requests, without a Data Cache, each render can go to the network itself.
+  - id: "9"
+    title: "Name the Next.js caching layers"
+    body: |
+      #### Short answer
+
+      There are four layers. They differ in scope, lifetime, and invalidation.
+
+      Request Memoization deduplicates identical `fetch` calls in one server render. For an ORM and other functions in that same server context, use `React.cache`.
+
+      The Data Cache stores results of a cacheable `fetch` on the server across requests. Entries can survive deploys, but whether they actually do depends on the environment: a local file or in-memory cache is not necessarily shared by every instance. Invalidation goes through `revalidate`, `revalidateTag`, and `revalidatePath`.
+
+      The Full Route Cache stores the HTML and RSC payload of static routes. It can be filled at build time and during later generation or revalidation.
+
+      The Router Cache stores the RSC payload in the browser and speeds up client navigation without a full document reload. In Next.js 15 `staleTimes.dynamic` defaults to 0: page segments of dynamic routes are not reused on ordinary client navigation the way they used to be. Shared layouts are still reused. Loading segments keep their own cache behavior.
+
+      A full page reload in the browser clears the Router Cache. The Data Cache lives on the server and can keep data across different HTTP requests.
+
+      `"use cache"` in Next.js 15 is an experimental direction, not a fifth classic layer. The directive caches functions, components, and routes. `cacheLife` sets the lifetime, and `cacheTag` sets revalidation tags. `dynamicIO` belongs to the experimental handling of dynamic input and caching. Do not mix these APIs with the four layers.
+
+      | Layer | Where | What it stores |
+      | --- | --- | --- |
+      | Request Memoization | One server render | Identical `fetch` calls; otherwise `React.cache` |
+      | Data Cache | Server, across requests | A cacheable `fetch` result. A deploy does not guarantee a shared cache in every environment |
+      | Full Route Cache | Server | HTML and RSC payload of a static route |
+      | Router Cache | Browser | RSC payload for client navigation. In 15 `staleTimes.dynamic` defaults to 0 |
+
+      #### Code example
+
+      ```ts
+      import { cache } from 'react';
+
+      export const getBoard = cache(async (id: string) => {
+        return db.board.findUnique({ where: { id } });
+      });
+      ```
+
+      `React.cache` reuses the function result within one server request. It is not the Data Cache and not the Router Cache.
+
+      #### Phrase to recite
+
+      Four layers: Request Memoization for one render, the Data Cache for `fetch` across requests, the Full Route Cache for static HTML and RSC payload, and the Router Cache for payload in the browser. In Next.js 15 the defaults are less aggressive: `fetch` is not cached on its own, and `staleTimes.dynamic` is 0, while layouts are still reused. A full reload clears the client Router Cache. The Data Cache can live across HTTP requests, but a shared cache after a deploy depends on the environment. `"use cache"`, `cacheLife`, `cacheTag`, and `dynamicIO` are experimental, not a fifth layer.
+  - id: "11"
+    title: "Static versus dynamic rendering"
+    body: |
+      #### Short answer
+
+      Static rendering prepares a page ahead of time, for example at build, and reuses the result for many users. That fits a landing page, documentation, and a public product page. Dynamic rendering builds the page on the server during the request, when the result depends on that request: a profile, personal data, or a response that accounts for cookies.
+
+      Dynamic APIs can make rendering dynamic: `cookies()`, `headers()`, the page's current `searchParams`, and `connection()`. In Next.js 15 `cookies()` and `headers()` are async. `export const dynamic = 'force-dynamic'` explicitly forces the route to render dynamically.
+
+      An uncached `fetch` is also listed among the causes. In Next.js 15 `fetch` is uncached by default, but the absence of a Data Cache does not automatically make a route dynamic in every configuration. Context, other APIs, and segment settings matter.
+
+      `generateStaticParams` predefines known values of a dynamic segment, such as `[slug]`. Having the function does not guarantee the whole route is static if another part needs dynamic rendering.
+
+      PPR, Partial Prerendering, is experimental in Next.js 15 and needs its own configuration. It is a static shell plus dynamic holes in `Suspense`. `Suspense` by itself does not enable PPR. A product name, description, and image can be static, while a personal price read from cookies sits in `Suspense` with a fallback.
+
+      #### Code example
+
+      ```tsx
+      export async function generateStaticParams() {
+        return [{ slug: 'react' }, { slug: 'nextjs' }];
+      }
+
+      export default async function BlogPost({
+        params,
+      }: {
+        params: Promise<{ slug: string }>;
+      }) {
+        const { slug } = await params;
+
+        return <article>Post: {slug}</article>;
+      }
+      ```
+
+      ```tsx
+      export default function ProductPage() {
+        return (
+          <>
+            <ProductInfo />
+            <Suspense fallback={<PriceSkeleton />}>
+              <PersonalizedPrice />
+            </Suspense>
+          </>
+        );
+      }
+      ```
+
+      `ProductInfo` can be static. `PersonalizedPrice` reads cookies and stays a dynamic hole when PPR is enabled by configuration.
+
+      #### Phrase to recite
+
+      Static rendering prepares a page ahead of time and reuses the result. Dynamic rendering builds it on the request. Dynamic APIs (`cookies()`, `headers()`, `searchParams`, `connection()`), segment settings, and `dynamic = 'force-dynamic'` make a route dynamic. An uncached `fetch` in Next.js 15 does not by itself always mean dynamic rendering. Generate a `[slug]` ahead of time with `generateStaticParams` when the rest of the route allows it. PPR is experimental in 15: a static shell and dynamic holes in `Suspense`, but `Suspense` alone does not enable PPR.
+  - id: "16"
+    title: "What is the RSC payload?"
+    body: |
+      #### Short answer
+
+      The RSC payload is a serialized representation of the React Server Component render result. It is not HTML and it is not component source code.
+
+      It holds the server render result in a format React understands, references to Client Components and the information needed to load them, the props of those components, and how to join the server and client parts of the tree. The source of a Client Component is not in the payload: the client loads its JavaScript separately when it is needed.
+
+      From the payload the client reconciles and updates the React tree without a full document reload. On soft navigation Next.js usually requests the RSC payload of the next page instead of a new full HTML document. The exact behavior depends on the navigation and the cache. Shared layouts can stay, already loaded Client Components can be reused, and the needed parts can update.
+
+      The first load is different. Next.js usually sends HTML for a fast first paint and the data React needs for the rest of the work and for hydration.
+
+      A payload that already contains a rendered Server Component does not replace the JavaScript of a Client Component. A counter button reacts to a click only when the client code runs.
+
+      | Format | What it is for |
+      | --- | --- |
+      | HTML | The first paint in the browser |
+      | RSC payload | The server result structure for the first load and later updates |
+      | Client JavaScript | Running Client Components and interactivity |
+
+      #### Code example
+
+      ```tsx
+      export default async function Page() {
+        const user = await getUser();
+
+        return (
+          <>
+            <h1>{user.name}</h1>
+            <Counter initialCount={user.count} />
+          </>
+        );
+      }
+      ```
+
+      ```tsx
+      'use client';
+
+      export default function Counter({ initialCount }: { initialCount: number }) {
+        return <button type="button">{initialCount}</button>;
+      }
+      ```
+
+      The payload carries the heading and the props for `Counter`. The code of `Counter` is not placed in the payload.
+
+      #### Phrase to recite
+
+      The RSC payload is the serialized result of the Server Component tree: server output, references to Client Components, and their props. Client source is not inside it. On soft navigation the app usually requests the payload and updates the tree without a full document reload, not "without HTML" as a universal rule. On the first open the browser receives HTML and the data for hydration. A button still needs client JavaScript.
   - id: "17"
     title: "Middleware: what can it do, and what should it not do?"
     body: |
