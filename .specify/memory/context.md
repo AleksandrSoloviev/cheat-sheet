@@ -15,6 +15,7 @@ A static site of cheat sheets grouped by technology, in Russian and English. Vue
 - `javascript`: cards only.
 - `next`: a study plan only, questions 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 16, 17, 18, 19, 20, 21, and 22.
 - `epam-react`: a study plan only, seven DBS React interviews, 259 questions with answers in Russian and English.
+- The locale home opens a short reel of those existing study-plan questions: the spoken phrase, then the short answer. It does not add study text.
 - Spec Kit files under `.specify/` and `.cursor/commands/`.
 
 ## Non-Goals

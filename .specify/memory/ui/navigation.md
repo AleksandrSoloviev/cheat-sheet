@@ -16,6 +16,9 @@ No authentication. Locales are `ru` and `en`.
 
 - `SCREEN-locale-redirect` → `SCREEN-technology-list` (`/ru/`) : opening `/` or an unknown locale.
 - `SCREEN-technology-list` → `SCREEN-technology-home` : technology link.
+- `SCREEN-technology-list` stays on `/{locale}/` when the short question reel opens or closes. A full load of that document opens the reel. Closing it leaves the technology list and the topic rings.
+- `SCREEN-technology-list` reel plan link → `SCREEN-roadmap` when the frame is Vue, and → `SCREEN-next-roadmap` when the frame is Next.js. An EPAM React frame goes to `/{locale}/epam-react/roadmap`. That page has no row in the screen registry.
+- `SCREEN-app-frame` locale switch on the reel reloads the home document and opens the reel again.
 - `SCREEN-technology-home` → `SCREEN-card` : card link, when `cards` is a kind.
 - `SCREEN-technology-home` → `SCREEN-conspect` : section link, Vue only.
 - `SCREEN-technology-home` → `SCREEN-roadmap` : study-plan link when the technology is `vue`.
@@ -37,9 +40,13 @@ flowchart LR
   conspect[conspect]
   roadmap[vue roadmap]
   nextRoadmap[next roadmap]
+  epamRoadmap[epam roadmap]
   missing[not found]
   redirect --> list
   list --> home
+  list --> roadmap
+  list --> nextRoadmap
+  list --> epamRoadmap
   home --> card
   home --> conspect
   home --> roadmap

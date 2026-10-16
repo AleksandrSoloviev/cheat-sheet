@@ -7,6 +7,7 @@
 - Vue roadmap days are panels on one route. The selected day is `localStorage` key `vue-roadmap-tab-v1`. Checked question ids are `vue-roadmap-done-v1` and are shared by both locales.
 - A technology whose only roadmap file is `catalog` renders one question list. It has no day tabs and no glossary. Next checked ids are `next-roadmap-done-v1`, shared by both locales, with no tab key.
 - Glossary subtab starts on `terms` and is not stored.
+- The locale home opens a question reel in `HomeStories.astro`. A question with both sections shows the spoken phrase, then the short answer, under the same title. Seen questions are `localStorage` key `prep-stories-seen-v1`, one key per question, shared by `ru` and `en`. That key is not a roadmap checkbox key.
 
 ## Reusable components / patterns
 
@@ -14,6 +15,7 @@
 - `LocaleSwitch.astro` rewrites the locale prefix.
 - `TechList.astro` renders `src/data/technologies.ts`. Labels come from `technologyLabel()`.
 - `RoadmapApp.astro` renders Vue days, questions, and the glossary, or a single catalog list when the page passes `mode="catalog"`.
+- `HomeStories.astro` is the home-page reel. It is not mounted on cards, the conspect, or a study plan.
 
 ## Design-token / theme conventions
 

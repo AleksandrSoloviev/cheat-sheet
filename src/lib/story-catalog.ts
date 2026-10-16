@@ -1,6 +1,7 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { technologyLabel, withBase, type Locale } from '../i18n/ui';
 import { renderMarkdown } from './markdown';
+import { splitStorySections } from './story-sections';
 
 const topicOrder = ['vue', 'next', 'epam-react'] as const;
 
@@ -28,7 +29,8 @@ export type StoryQuestion = {
   topic: string;
   note: string;
   fallback: boolean;
-  html: string;
+  phraseHtml: string;
+  shortHtml: string;
 };
 
 export type StoryTopic = {
@@ -64,6 +66,10 @@ export async function buildStoryCatalog(locale: Locale): Promise<StoryCatalog> {
         const id = question.id.trim();
         const title = question.title.trim();
         if (!id || !title) continue;
+        const sections = splitStorySections(question.body);
+        const phrase = sections.phrase.trim();
+        const short = sections.short.trim();
+        if (!phrase && !short) continue;
         questions.push({
           key: `${slug}/${source}/${question.id}`,
           source,
@@ -72,7 +78,8 @@ export async function buildStoryCatalog(locale: Locale): Promise<StoryCatalog> {
           topic: question.topic ?? '',
           note: question.note ?? '',
           fallback: picked.usedFallback,
-          html: renderMarkdown(question.body),
+          phraseHtml: phrase ? renderMarkdown(phrase) : '',
+          shortHtml: short ? renderMarkdown(short) : '',
         });
       }
     }

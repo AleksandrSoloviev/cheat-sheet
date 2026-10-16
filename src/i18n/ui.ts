@@ -42,6 +42,8 @@ const dictionary = {
     'stories.position': '{current} из {total}',
     'stories.ringsLabel': 'Вопросы',
     'stories.segmentsLabel': 'Позиция в пачке',
+    'stories.phrase': 'Фраза',
+    'stories.short': 'Короткий ответ',
   },
   en: {
     'site.title': 'Cheat sheets',
@@ -83,6 +85,8 @@ const dictionary = {
     'stories.position': '{current} of {total}',
     'stories.ringsLabel': 'Questions',
     'stories.segmentsLabel': 'Place in the batch',
+    'stories.phrase': 'Phrase',
+    'stories.short': 'Short answer',
   },
 } as const;
 

@@ -25,6 +25,8 @@ const rings = [
   data-cooldown="30"
   data-position-template={t(locale, 'stories.position')}
   data-note-label={t(locale, 'roadmap.note')}
+  data-role-phrase={t(locale, 'stories.phrase')}
+  data-role-short={t(locale, 'stories.short')}
 >
   <div class="stories-rings" role="group" aria-label={t(locale, 'stories.ringsLabel')}>
     {
@@ -60,7 +62,8 @@ const rings = [
       <p class="stories-subtopic" data-stories-subtopic hidden></p>
       <p class="source-note" data-stories-note hidden></p>
       <p class="fallback" data-stories-fallback hidden>{t(locale, 'fallback.note')}</p>
-      <div class="q-body stories-answer" data-stories-answer></div>
+      <p class="stories-role" data-stories-role></p>
+      <div class="q-body stories-answer" data-stories-answer aria-live="polite"></div>
       <a class="stories-plan" data-stories-plan href={withBase(`/${locale}/`)}>{t(locale, 'stories.openPlan')}</a>
       <div class="stories-nav">
         <button type="button" data-stories-prev>{t(locale, 'stories.prev')}</button>
@@ -89,6 +92,7 @@ const rings = [
     var subtopic = root.querySelector('[data-stories-subtopic]');
     var note = root.querySelector('[data-stories-note]');
     var fallback = root.querySelector('[data-stories-fallback]');
+    var roleLabel = root.querySelector('[data-stories-role]');
     var answer = root.querySelector('[data-stories-answer]');
     var plan = root.querySelector('[data-stories-plan]');
     var prev = root.querySelector('[data-stories-prev]');
@@ -99,10 +103,14 @@ const rings = [
     var positionTemplate = root.getAttribute('data-position-template') || '{current} / {total}';
     var noteLabel = root.getAttribute('data-note-label') || '';
     var catalogUrl = root.getAttribute('data-catalog') || '';
+    var phraseName = root.getAttribute('data-role-phrase') || '';
+    var shortName = root.getAttribute('data-role-short') || '';
     var catalog = null;
     var fetchStarted = false;
     var openedFrom = null;
-    var viewer = { status: 'closed', topic: null, questions: [], index: 0 };
+    var gestureLockUntil = 0;
+    var touchStart = null;
+    var viewer = { status: 'closed', topic: null, questions: [], frames: [], index: 0 };
     var topicOrder = ['vue', 'next', 'epam-react'];
 
     function readSeen() {
@@ -143,7 +151,8 @@ const rings = [
           topic: question.topic || '',
           note: question.note || '',
           fallback: Boolean(question.fallback),
-          html: question.html || '',
+          phraseHtml: question.phraseHtml || '',
+          shortHtml: question.shortHtml || '',
           label: topic.label,
           planHref: topic.planHref,
           slug: topic.slug,
@@ -202,6 +211,57 @@ const rings = [
       return result;
     }
 
+    function makeFrame(question, role, html) {
+      return {
+        key: question.key,
+        title: question.title,
+        topic: question.topic,
+        note: question.note,
+        fallback: question.fallback,
+        label: question.label,
+        planHref: question.planHref,
+        role: role,
+        html: html,
+      };
+    }
+
+    function expandFrames(questions) {
+      var frames = [];
+      var kept = [];
+      questions.forEach(function (question) {
+        var phrase = question.phraseHtml.trim();
+        var short = question.shortHtml.trim();
+        if (!phrase && !short) return;
+        kept.push(question);
+        if (phrase) frames.push(makeFrame(question, 'phrase', question.phraseHtml));
+        if (short) frames.push(makeFrame(question, 'short', question.shortHtml));
+      });
+      return { questions: kept, frames: frames };
+    }
+
+    function questionTotal(frames) {
+      var seen = {};
+      var total = 0;
+      frames.forEach(function (frame) {
+        if (seen[frame.key]) return;
+        seen[frame.key] = true;
+        total += 1;
+      });
+      return total;
+    }
+
+    function questionSlot(frames, frameIndex) {
+      var seen = {};
+      var slot = -1;
+      var last = Math.min(frameIndex, frames.length - 1);
+      for (var index = 0; index <= last; index += 1) {
+        if (seen[frames[index].key]) continue;
+        seen[frames[index].key] = true;
+        slot += 1;
+      }
+      return slot;
+    }
+
     function showPanel(name) {
       Object.keys(panels).forEach(function (key) {
         panels[key].hidden = key !== name;
@@ -213,38 +273,45 @@ const rings = [
       if (target) target.focus();
     }
 
-    function renderQuestion(question, index, total) {
+    function renderFrame(frame, frameIndex, frames) {
+      var total = questionTotal(frames);
+      var slot = questionSlot(frames, frameIndex);
       segments.textContent = '';
       for (var markIndex = 0; markIndex < total; markIndex += 1) {
         var mark = document.createElement('span');
         mark.className = 'stories-segment';
-        if (markIndex === index) mark.setAttribute('aria-current', 'true');
+        if (markIndex === slot) mark.setAttribute('aria-current', 'true');
         segments.appendChild(mark);
       }
       position.textContent = positionTemplate
-        .replace('{current}', String(index + 1))
+        .replace('{current}', String(slot + 1))
         .replace('{total}', String(total));
-      techName.textContent = question.label;
-      title.textContent = question.title;
-      if (question.topic) {
+      techName.textContent = frame.label;
+      title.textContent = frame.title;
+      roleLabel.textContent = frame.role === 'short' ? shortName : phraseName;
+      if (frame.topic) {
         subtopic.hidden = false;
-        subtopic.textContent = question.topic;
+        subtopic.textContent = frame.topic;
       } else {
         subtopic.hidden = true;
         subtopic.textContent = '';
       }
-      if (question.note) {
+      if (frame.note) {
         note.hidden = false;
-        note.textContent = noteLabel + ': ' + question.note;
+        note.textContent = noteLabel + ': ' + frame.note;
       } else {
         note.hidden = true;
         note.textContent = '';
       }
-      fallback.hidden = !question.fallback;
-      answer.innerHTML = question.html;
+      fallback.hidden = !frame.fallback;
+      answer.classList.remove('stories-answer-center');
+      answer.innerHTML = frame.html;
       answer.scrollTop = 0;
-      plan.href = question.planHref;
-      prev.disabled = index === 0;
+      if (frame.role === 'phrase' && answer.scrollHeight <= answer.clientHeight + 1) {
+        answer.classList.add('stories-answer-center');
+      }
+      plan.href = frame.planHref;
+      prev.disabled = frameIndex === 0;
     }
 
     function render(focus) {
@@ -265,8 +332,8 @@ const rings = [
       } else {
         showPanel('viewing');
         dialog.setAttribute('aria-labelledby', 'stories-question-title');
-        var question = viewer.questions[viewer.index];
-        if (question) renderQuestion(question, viewer.index, viewer.questions.length);
+        var frame = viewer.frames[viewer.index];
+        if (frame) renderFrame(frame, viewer.index, viewer.frames);
       }
       if (focus) focusSelector(focus);
     }
@@ -274,19 +341,25 @@ const rings = [
     function showViewing(index, focus) {
       viewer.status = 'viewing';
       viewer.index = index;
-      var question = viewer.questions[index];
-      if (question) rememberSeen(question.key);
+      var frame = viewer.frames[index];
+      if (frame) rememberSeen(frame.key);
       render(focus);
     }
 
     function startDeck(topic) {
-      var questions = drawBatch(topic);
-      if (!questions.length) {
-        viewer = { status: 'error', topic: topic, questions: [], index: 0 };
+      var expanded = expandFrames(drawBatch(topic));
+      if (!expanded.frames.length) {
+        viewer = { status: 'error', topic: topic, questions: [], frames: [], index: 0 };
         render('[data-stories-close]');
         return;
       }
-      viewer = { status: 'viewing', topic: topic, questions: questions, index: 0 };
+      viewer = {
+        status: 'viewing',
+        topic: topic,
+        questions: expanded.questions,
+        frames: expanded.frames,
+        index: 0,
+      };
       showViewing(0, null);
     }
 
@@ -306,14 +379,14 @@ const rings = [
         })
         .catch(function () {
           if (viewer.status === 'closed') return;
-          viewer = { status: 'error', topic: viewer.topic, questions: [], index: 0 };
+          viewer = { status: 'error', topic: viewer.topic, questions: [], frames: [], index: 0 };
           render('[data-stories-close]');
         });
     }
 
     function begin(topic, fromRing) {
       openedFrom = fromRing ? topic : null;
-      viewer = { status: 'loading', topic: topic, questions: [], index: 0 };
+      viewer = { status: 'loading', topic: topic, questions: [], frames: [], index: 0 };
       render('[data-stories-close]');
       if (catalog) {
         startDeck(topic);
@@ -324,7 +397,7 @@ const rings = [
 
     function showNext() {
       if (viewer.status !== 'viewing') return;
-      if (viewer.index >= viewer.questions.length - 1) {
+      if (viewer.index >= viewer.frames.length - 1) {
         viewer.status = 'end';
         render('[data-stories-more]');
         return;
@@ -333,17 +406,29 @@ const rings = [
     }
 
     function showPrev() {
-      if (viewer.status === 'end' && viewer.questions.length) {
-        showViewing(viewer.questions.length - 1, null);
+      if (viewer.status === 'end' && viewer.frames.length) {
+        showViewing(viewer.frames.length - 1, null);
         return;
       }
       if (viewer.status !== 'viewing' || viewer.index === 0) return;
       showViewing(viewer.index - 1, null);
     }
 
+    function canScrollDown() {
+      return answer.scrollTop + answer.clientHeight < answer.scrollHeight - 1;
+    }
+
+    function canScrollUp() {
+      return answer.scrollTop > 0;
+    }
+
+    function onControl(target) {
+      return Boolean(target && target.closest && target.closest('button, a'));
+    }
+
     function closeViewer() {
       var slug = openedFrom;
-      viewer = { status: 'closed', topic: null, questions: [], index: 0 };
+      viewer = { status: 'closed', topic: null, questions: [], frames: [], index: 0 };
       render(null);
       var ring = root.querySelector('[data-story-topic="' + (slug || 'vue') + '"]');
       if (ring) ring.focus();
@@ -361,6 +446,63 @@ const rings = [
         begin(button.getAttribute('data-story-topic'), true);
       });
     });
+    panels.viewing.addEventListener('wheel', function (event) {
+      if (viewer.status !== 'viewing' || onControl(event.target)) return;
+      if (Date.now() < gestureLockUntil) {
+        event.preventDefault();
+        return;
+      }
+      if (event.deltaY > 0 && canScrollDown()) {
+        answer.scrollTop += event.deltaY;
+        event.preventDefault();
+        return;
+      }
+      if (event.deltaY < 0 && canScrollUp()) {
+        answer.scrollTop += event.deltaY;
+        event.preventDefault();
+        return;
+      }
+      if (event.deltaY > 0) {
+        event.preventDefault();
+        showNext();
+        gestureLockUntil = Date.now() + 400;
+        return;
+      }
+      if (event.deltaY < 0) {
+        event.preventDefault();
+        showPrev();
+        gestureLockUntil = Date.now() + 400;
+      }
+    }, { passive: false });
+
+    panels.viewing.addEventListener('touchstart', function (event) {
+      if (viewer.status !== 'viewing' || event.touches.length !== 1 || onControl(event.target)) {
+        touchStart = null;
+        return;
+      }
+      touchStart = {
+        x: event.touches[0].clientX,
+        y: event.touches[0].clientY,
+        scrollTop: answer.scrollTop,
+      };
+    }, { passive: true });
+
+    panels.viewing.addEventListener('touchend', function (event) {
+      if (!touchStart || viewer.status !== 'viewing') {
+        touchStart = null;
+        return;
+      }
+      var point = event.changedTouches[0];
+      var dx = touchStart.x - point.clientX;
+      var dy = touchStart.y - point.clientY;
+      var startedAtTop = touchStart.scrollTop <= 0;
+      var startedAtBottom = touchStart.scrollTop + answer.clientHeight >= answer.scrollHeight - 1;
+      touchStart = null;
+      if (Math.abs(dy) < 48 || Math.abs(dy) <= Math.abs(dx)) return;
+      if (dy > 0 && startedAtBottom) showNext();
+      if (dy < 0 && startedAtTop) showPrev();
+    }, { passive: true });
+
     document.addEventListener('keydown', function (event) {
       if (viewer.status === 'closed') return;
       if (event.key === 'Escape') {
@@ -375,6 +517,30 @@ const rings = [
       }
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
+        showPrev();
+        return;
+      }
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (viewer.status !== 'viewing') return;
+        if (canScrollDown()) {
+          answer.scrollTop += Math.max(48, answer.clientHeight * 0.8);
+          return;
+        }
+        showNext();
+        return;
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (viewer.status === 'end') {
+          showPrev();
+          return;
+        }
+        if (viewer.status !== 'viewing') return;
+        if (canScrollUp()) {
+          answer.scrollTop -= Math.max(48, answer.clientHeight * 0.8);
+          return;
+        }
         showPrev();
         return;
       }

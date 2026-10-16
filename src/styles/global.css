@@ -258,7 +258,10 @@ th { background: #1a2430; color: var(--accent2); }
 }
 
 .stories-kicker,
-.stories-subtopic { color: var(--muted); margin: 0; }
+.stories-subtopic,
+.stories-role { color: var(--muted); margin: 0; }
+
+.stories-role { margin-bottom: 8px; }
 
 .stories-dialog h2 {
   font-family: "IBM Plex Serif", Georgia, serif;
@@ -271,6 +274,12 @@ th { background: #1a2430; color: var(--accent2); }
   min-height: 0;
   border-top: 0;
   padding: 0 0 8px;
+}
+
+.stories-answer-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .stories-plan { margin-top: 12px; flex: none; }
