@@ -4,6 +4,7 @@ specs/
 # Node / Astro
 node_modules/
 dist/
+build/
 .astro/
 *.log
 .env

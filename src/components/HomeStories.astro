@@ -1,0 +1,400 @@
+---
+import LocaleSwitch from './LocaleSwitch.astro';
+import { t, withBase, type Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+  pathname: string;
+}
+
+const { locale, pathname } = Astro.props;
+const catalogUrl = withBase(`/stories/${locale}.json`);
+const rings = [
+  { slug: 'vue', label: t(locale, 'tech.vue') },
+  { slug: 'next', label: t(locale, 'tech.next') },
+  { slug: 'epam-react', label: t(locale, 'tech.epam-react') },
+] as const;
+---
+
+<div
+  class="stories"
+  data-stories
+  data-catalog={catalogUrl}
+  data-seen-key="prep-stories-seen-v1"
+  data-batch="10"
+  data-cooldown="30"
+  data-position-template={t(locale, 'stories.position')}
+  data-note-label={t(locale, 'roadmap.note')}
+>
+  <div class="stories-rings" role="group" aria-label={t(locale, 'stories.ringsLabel')}>
+    {
+      rings.map((ring) => (
+        <button type="button" data-story-topic={ring.slug}>
+          {ring.label}
+        </button>
+      ))
+    }
+  </div>
+  <div class="stories-dialog" data-stories-dialog role="dialog" aria-modal="true" hidden>
+    <div class="stories-top">
+      <LocaleSwitch locale={locale} pathname={pathname} />
+      <button type="button" data-stories-close>{t(locale, 'stories.close')}</button>
+    </div>
+    <div class="stories-panel" data-stories-panel="loading">
+      <h2 id="stories-loading-title">{t(locale, 'stories.loading')}</h2>
+    </div>
+    <div class="stories-panel" data-stories-panel="error" hidden>
+      <h2 id="stories-error-title">{t(locale, 'stories.error')}</h2>
+    </div>
+    <div class="stories-panel stories-panel-view" data-stories-panel="viewing" hidden>
+      <div
+        class="stories-segments"
+        data-stories-segments
+        role="group"
+        aria-label={t(locale, 'stories.segmentsLabel')}
+      >
+      </div>
+      <p class="stories-position" data-stories-position></p>
+      <p class="stories-kicker" data-stories-tech></p>
+      <h2 id="stories-question-title" data-stories-title tabindex="-1"></h2>
+      <p class="stories-subtopic" data-stories-subtopic hidden></p>
+      <p class="source-note" data-stories-note hidden></p>
+      <p class="fallback" data-stories-fallback hidden>{t(locale, 'fallback.note')}</p>
+      <div class="q-body stories-answer" data-stories-answer></div>
+      <a class="stories-plan" data-stories-plan href={withBase(`/${locale}/`)}>{t(locale, 'stories.openPlan')}</a>
+      <div class="stories-nav">
+        <button type="button" data-stories-prev>{t(locale, 'stories.prev')}</button>
+        <button type="button" data-stories-next>{t(locale, 'stories.next')}</button>
+      </div>
+    </div>
+    <div class="stories-panel" data-stories-panel="end" hidden>
+      <h2 id="stories-end-title">{t(locale, 'stories.endTitle')}</h2>
+      <button type="button" class="stories-more" data-stories-more>{t(locale, 'stories.more')}</button>
+    </div>
+  </div>
+</div>
+<script is:inline>
+  document.querySelectorAll('[data-stories]').forEach(function (root) {
+    var dialog = root.querySelector('[data-stories-dialog]');
+    var panels = {
+      loading: root.querySelector('[data-stories-panel="loading"]'),
+      error: root.querySelector('[data-stories-panel="error"]'),
+      viewing: root.querySelector('[data-stories-panel="viewing"]'),
+      end: root.querySelector('[data-stories-panel="end"]'),
+    };
+    var segments = root.querySelector('[data-stories-segments]');
+    var position = root.querySelector('[data-stories-position]');
+    var techName = root.querySelector('[data-stories-tech]');
+    var title = root.querySelector('[data-stories-title]');
+    var subtopic = root.querySelector('[data-stories-subtopic]');
+    var note = root.querySelector('[data-stories-note]');
+    var fallback = root.querySelector('[data-stories-fallback]');
+    var answer = root.querySelector('[data-stories-answer]');
+    var plan = root.querySelector('[data-stories-plan]');
+    var prev = root.querySelector('[data-stories-prev]');
+    var next = root.querySelector('[data-stories-next]');
+    var seenKey = root.getAttribute('data-seen-key') || 'prep-stories-seen-v1';
+    var batchSize = Number(root.getAttribute('data-batch')) || 10;
+    var cooldown = Number(root.getAttribute('data-cooldown')) || 30;
+    var positionTemplate = root.getAttribute('data-position-template') || '{current} / {total}';
+    var noteLabel = root.getAttribute('data-note-label') || '';
+    var catalogUrl = root.getAttribute('data-catalog') || '';
+    var catalog = null;
+    var fetchStarted = false;
+    var openedFrom = null;
+    var viewer = { status: 'closed', topic: null, questions: [], index: 0 };
+    var topicOrder = ['vue', 'next', 'epam-react'];
+
+    function readSeen() {
+      try {
+        var raw = localStorage.getItem(seenKey);
+        if (!raw) return [];
+        var parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) || parsed.some(function (item) { return typeof item !== 'string'; })) return [];
+        return parsed;
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function writeSeen(keys) {
+      try {
+        localStorage.setItem(seenKey, JSON.stringify(keys));
+      } catch (error) {}
+    }
+
+    function rememberSeen(questionKey) {
+      var keys = readSeen().filter(function (item) { return item !== questionKey; });
+      keys.push(questionKey);
+      writeSeen(keys);
+    }
+
+    function keySet(keys) {
+      var set = {};
+      keys.forEach(function (key) { set[key] = true; });
+      return set;
+    }
+
+    function enrich(topic) {
+      return topic.questions.map(function (question) {
+        return {
+          key: question.key,
+          title: question.title,
+          topic: question.topic || '',
+          note: question.note || '',
+          fallback: Boolean(question.fallback),
+          html: question.html || '',
+          label: topic.label,
+          planHref: topic.planHref,
+          slug: topic.slug,
+        };
+      });
+    }
+
+    function buildPools(topics, exclude) {
+      var pools = {};
+      var any = false;
+      topics.forEach(function (topic) {
+        var list = enrich(topic).filter(function (question) { return !exclude[question.key]; });
+        pools[topic.slug] = list;
+        if (list.length) any = true;
+      });
+      return { pools: pools, any: any };
+    }
+
+    function takeRandom(list) {
+      if (!list.length) return null;
+      var index = Math.floor(Math.random() * list.length);
+      return list.splice(index, 1)[0];
+    }
+
+    function drawBatch(topicFilter) {
+      var topics = catalog.topics.filter(function (topic) {
+        return !topicFilter || topic.slug === topicFilter;
+      });
+      var preferred = topicFilter ? [topicFilter] : topicOrder;
+      var order = preferred.filter(function (slug) {
+        return topics.some(function (topic) { return topic.slug === slug; });
+      });
+      var seen = readSeen();
+      var built = buildPools(topics, keySet(seen));
+      if (!built.any) {
+        var tail = Math.min(cooldown, seen.length);
+        while (tail > 0) {
+          built = buildPools(topics, keySet(seen.slice(seen.length - tail)));
+          if (built.any) break;
+          tail -= 1;
+        }
+        if (!built.any) built = buildPools(topics, {});
+      }
+      var result = [];
+      while (result.length < batchSize) {
+        var progressed = false;
+        for (var index = 0; index < order.length; index += 1) {
+          if (result.length >= batchSize) break;
+          var picked = takeRandom(built.pools[order[index]] || []);
+          if (!picked) continue;
+          result.push(picked);
+          progressed = true;
+        }
+        if (!progressed) break;
+      }
+      return result;
+    }
+
+    function showPanel(name) {
+      Object.keys(panels).forEach(function (key) {
+        panels[key].hidden = key !== name;
+      });
+    }
+
+    function focusSelector(selector) {
+      var target = dialog.querySelector(selector);
+      if (target) target.focus();
+    }
+
+    function renderQuestion(question, index, total) {
+      segments.textContent = '';
+      for (var markIndex = 0; markIndex < total; markIndex += 1) {
+        var mark = document.createElement('span');
+        mark.className = 'stories-segment';
+        if (markIndex === index) mark.setAttribute('aria-current', 'true');
+        segments.appendChild(mark);
+      }
+      position.textContent = positionTemplate
+        .replace('{current}', String(index + 1))
+        .replace('{total}', String(total));
+      techName.textContent = question.label;
+      title.textContent = question.title;
+      if (question.topic) {
+        subtopic.hidden = false;
+        subtopic.textContent = question.topic;
+      } else {
+        subtopic.hidden = true;
+        subtopic.textContent = '';
+      }
+      if (question.note) {
+        note.hidden = false;
+        note.textContent = noteLabel + ': ' + question.note;
+      } else {
+        note.hidden = true;
+        note.textContent = '';
+      }
+      fallback.hidden = !question.fallback;
+      answer.innerHTML = question.html;
+      answer.scrollTop = 0;
+      plan.href = question.planHref;
+      prev.disabled = index === 0;
+    }
+
+    function render(focus) {
+      if (viewer.status === 'closed') {
+        dialog.hidden = true;
+        return;
+      }
+      dialog.hidden = false;
+      if (viewer.status === 'loading') {
+        showPanel('loading');
+        dialog.setAttribute('aria-labelledby', 'stories-loading-title');
+      } else if (viewer.status === 'error') {
+        showPanel('error');
+        dialog.setAttribute('aria-labelledby', 'stories-error-title');
+      } else if (viewer.status === 'end') {
+        showPanel('end');
+        dialog.setAttribute('aria-labelledby', 'stories-end-title');
+      } else {
+        showPanel('viewing');
+        dialog.setAttribute('aria-labelledby', 'stories-question-title');
+        var question = viewer.questions[viewer.index];
+        if (question) renderQuestion(question, viewer.index, viewer.questions.length);
+      }
+      if (focus) focusSelector(focus);
+    }
+
+    function showViewing(index, focus) {
+      viewer.status = 'viewing';
+      viewer.index = index;
+      var question = viewer.questions[index];
+      if (question) rememberSeen(question.key);
+      render(focus);
+    }
+
+    function startDeck(topic) {
+      var questions = drawBatch(topic);
+      if (!questions.length) {
+        viewer = { status: 'error', topic: topic, questions: [], index: 0 };
+        render('[data-stories-close]');
+        return;
+      }
+      viewer = { status: 'viewing', topic: topic, questions: questions, index: 0 };
+      showViewing(0, null);
+    }
+
+    function ensureCatalog() {
+      if (catalog || fetchStarted) return;
+      fetchStarted = true;
+      fetch(catalogUrl)
+        .then(function (response) {
+          if (!response.ok) throw new Error('catalog');
+          return response.json();
+        })
+        .then(function (data) {
+          if (!data || !Array.isArray(data.topics)) throw new Error('catalog');
+          catalog = data;
+          if (viewer.status !== 'loading') return;
+          startDeck(viewer.topic);
+        })
+        .catch(function () {
+          if (viewer.status === 'closed') return;
+          viewer = { status: 'error', topic: viewer.topic, questions: [], index: 0 };
+          render('[data-stories-close]');
+        });
+    }
+
+    function begin(topic, fromRing) {
+      openedFrom = fromRing ? topic : null;
+      viewer = { status: 'loading', topic: topic, questions: [], index: 0 };
+      render('[data-stories-close]');
+      if (catalog) {
+        startDeck(topic);
+        return;
+      }
+      ensureCatalog();
+    }
+
+    function showNext() {
+      if (viewer.status !== 'viewing') return;
+      if (viewer.index >= viewer.questions.length - 1) {
+        viewer.status = 'end';
+        render('[data-stories-more]');
+        return;
+      }
+      showViewing(viewer.index + 1, null);
+    }
+
+    function showPrev() {
+      if (viewer.status === 'end' && viewer.questions.length) {
+        showViewing(viewer.questions.length - 1, null);
+        return;
+      }
+      if (viewer.status !== 'viewing' || viewer.index === 0) return;
+      showViewing(viewer.index - 1, null);
+    }
+
+    function closeViewer() {
+      var slug = openedFrom;
+      viewer = { status: 'closed', topic: null, questions: [], index: 0 };
+      render(null);
+      var ring = root.querySelector('[data-story-topic="' + (slug || 'vue') + '"]');
+      if (ring) ring.focus();
+    }
+
+    root.querySelector('[data-stories-close]').addEventListener('click', closeViewer);
+    prev.addEventListener('click', showPrev);
+    next.addEventListener('click', showNext);
+    root.querySelector('[data-stories-more]').addEventListener('click', function () {
+      startDeck(viewer.topic);
+      focusSelector('[data-stories-next]');
+    });
+    root.querySelectorAll('[data-story-topic]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        begin(button.getAttribute('data-story-topic'), true);
+      });
+    });
+    document.addEventListener('keydown', function (event) {
+      if (viewer.status === 'closed') return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeViewer();
+        return;
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        showNext();
+        return;
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        showPrev();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      var nodes = dialog.querySelectorAll('button, a[href]');
+      var list = Array.prototype.filter.call(nodes, function (node) {
+        return !node.disabled && !node.closest('[hidden]');
+      });
+      if (!list.length) return;
+      var first = list[0];
+      var last = list[list.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+
+    begin(null, false);
+  });
+</script>
